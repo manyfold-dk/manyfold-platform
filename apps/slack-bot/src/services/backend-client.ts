@@ -59,7 +59,10 @@ interface BackendHealthResponse {
 }
 
 function transformHealthResponse(raw: BackendHealthResponse): HealthResponse {
-  const statusLabel = (s: string) => (s === 'healthy' ? 'OK' : s === 'degraded' ? '⚠️' : '❌');
+  // An unmeasured component (the backend says `unknown`, for a stale edge probe or a source that
+  // is gone) is not a failure.
+  const statusLabel = (s: string) =>
+    s === 'healthy' ? 'OK' : s === 'degraded' ? '⚠️' : s === 'unknown' ? 'n/a' : '❌';
 
   const layers: HealthResponse['layers'] = [
     {
