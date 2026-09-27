@@ -57,7 +57,7 @@ The block below is vendored from `estate-baseline` by its `scripts/agent/vendor.
 the source there and re-vendor, never the copy. Its table of sibling repositories stays an
 unfilled placeholder: a checkout of this repository has no siblings.
 
-<!-- BEGIN baseline-agent (vendored from baseline-agent @ agent-2.2.0; do not edit) -->
+<!-- BEGIN baseline-agent (vendored from baseline-agent @ agent-2.3.0; do not edit) -->
 ## Common policy
 
 <!-- BEGIN policy -->
@@ -89,7 +89,9 @@ unfilled placeholder: a checkout of this repository has no siblings.
   treat a hit as a stop, never as a warning. The name deny-list is itself such a value: never
   copy it, or a term from it, into a public repository, not as a fixture or a test case.
   Add a new tenant, client or private repository to the deny-list in the change that
-  creates it, before its name is used anywhere.
+  creates it, before its name is used anywhere. A repository the owner designates public
+  from its creation is registered as designated public instead and never enters the
+  deny-list.
 - **VERIFY-01 -- Evidence:** Run mandatory repository checks and checks appropriate to the
   change. Repeat or broaden only after changes, failures, or unresolved concerns. Report
   actual results and limitations. Review the complete task, including uncommitted changes.

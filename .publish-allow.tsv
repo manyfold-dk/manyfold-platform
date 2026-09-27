@@ -246,13 +246,19 @@ exact version	0.0.0	.devcontainer/devcontainer.json
 exact version	1.1.3	infrastructure/images/object-backup-validate/Dockerfile
 IPv4 address	127.0.0.1	scripts/drawio-to-png.js
 exact version	127.0.0	scripts/drawio-to-png.js
-# Agent instructions vendored from the public estate-baseline payload (not edited here).
-# The payload names the plan and spec directories of its document lifecycle: a layout
-# convention, like the other path rows.
+# BEGIN baseline-agent allow (vendored; do not edit)
+# The shape values the vendored files carry, for a consumer's .publish-allow.tsv. vendor.sh
+# writes these rows between the consumer's baseline-agent allow markers, 2.3.0 filled in
+# with the release number of the marker blocks; check.sh compares them. Shape rows only.
+# the stamp records the release it was vendored from
+exact version	*	.claude/.baseline-agent-version
+# the marker lines of the two vendored blocks, and these rows themselves
+exact version	2.3.0	CLAUDE.md
+exact version	2.3.0	AGENTS.md
+exact version	2.3.0	.publish-allow.tsv
+# the directories the vendored rules and skills cite; generic names, allowed anywhere
+repository path	docs/adr/
 repository path	docs/plans/
 repository path	docs/specs/
-# The payload's own release number, which vendor.sh writes into the marker line and the
-# stamp; estate-baseline allows the same string in its VERSION file. Not a version in use.
-exact version	*	CLAUDE.md
-exact version	*	AGENTS.md
-exact version	*	.claude/.baseline-agent-version
+repository path	docs/runbooks/
+# END baseline-agent allow
