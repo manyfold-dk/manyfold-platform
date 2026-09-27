@@ -41,6 +41,26 @@ prometheus:
     podMonitorSelectorNilUsesHelmValues: false
     # Discover Probe CRDs across all namespaces (synthetic blackbox probes, ADR-0036)
     probeSelectorNilUsesHelmValues: false
+    # An alert computed from node-exporter series carries the node-exporter pod, container
+    # and namespace: the exporter's, not those of its subject, the node. The series keep
+    # them, because the chart's node recording rules (node:node_num_cpu:sum and others)
+    # join node-exporter series to kube_pod_info on (namespace, pod) to learn the node.
+    # The alert sent to Alertmanager drops them, so nothing that acts on an alert's pod
+    # (a restart, a link) targets the exporter; `instance` still names the target. Raw
+    # Prometheus alert_relabel_configs: the chart copies this list into a Secret.
+    additionalAlertRelabelConfigs:
+      - source_labels: [job]
+        regex: node-exporter
+        target_label: pod
+        replacement: ""
+      - source_labels: [job]
+        regex: node-exporter
+        target_label: container
+        replacement: ""
+      - source_labels: [job]
+        regex: node-exporter
+        target_label: namespace
+        replacement: ""
     # Persistent storage
     storageSpec:
       volumeClaimTemplate:
@@ -248,6 +268,30 @@ prometheus-node-exporter:
 
 # Kube-state-metrics
 kube-state-metrics:
+  prometheus:
+    monitor:
+      http:
+        # A kube-state-metrics series describes a Kubernetes object, not the exporter pod
+        # that serves it. With honorLabels a series keeps its own labels (kube_pod_* keep
+        # their pod and container, a namespaced object keeps its namespace), and the target
+        # adds only what the series lacks: the exporter's pod, container and namespace.
+        honorLabels: true
+        # The target's pod and container are always the exporter's, so they go. A series
+        # with its own pod or container keeps it.
+        relabelings:
+          - action: labeldrop
+            regex: pod|container
+        # The target's namespace is the exporter's too, but `up` and the scrape series
+        # need it (TargetDown groups by namespace). It is cleared only on the families of
+        # the cluster-scoped objects the chart collects, which never carry their own.
+        # kube_namespace_* is not one of them: its namespace label is its own. The group
+        # does not capture, so an empty replacement and the default "$1" both clear it.
+        metricRelabelings:
+          - sourceLabels: [__name__]
+            regex: kube_(?:certificatesigningrequest|mutatingwebhookconfiguration|node|persistentvolume|storageclass|validatingwebhookconfiguration|volumeattachment)_.+
+            targetLabel: namespace
+            replacement: ""
+            action: replace
   resources:
     limits:
       memory: 256Mi

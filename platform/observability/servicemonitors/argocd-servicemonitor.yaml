@@ -22,6 +22,21 @@ spec:
     - port: metrics
       interval: 30s
       scrapeTimeout: 10s
+      # An argocd_app_* series describes an Application, but the target labels it with
+      # the controller's pod and container, and alerts on it inherited them. Cleared on
+      # those families only; the controller's own metrics keep its pod. The regex does
+      # not capture, so an empty replacement and the default "$1" both clear the label.
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: argocd_app_.+
+          targetLabel: pod
+          replacement: ""
+          action: replace
+        - sourceLabels: [__name__]
+          regex: argocd_app_.+
+          targetLabel: container
+          replacement: ""
+          action: replace
 ---
 # ServiceMonitor for ArgoCD Server metrics
 apiVersion: monitoring.coreos.com/v1
