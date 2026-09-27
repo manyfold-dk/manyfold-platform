@@ -23,16 +23,20 @@ import dk.manyfold.website.api.v1.model.DeepHealthResponse.DependencyHealth;
 import dk.manyfold.website.api.v1.model.DeepHealthResponse.ResourceUsage;
 import dk.manyfold.website.api.v1.model.DeepHealthResponse.SelfHealth;
 import dk.manyfold.website.health.PrometheusHealthClient;
+import dk.manyfold.website.health.PrometheusQueryException;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.logging.Logger;
 
 /** Deep health endpoint for website backend service. */
 @Path("/api/v1/health/deep")
 @Tag(name = "Health", description = "Service health endpoints")
 public class DeepHealthResource {
+
+	private static final Logger LOG = Logger.getLogger(DeepHealthResource.class);
 
 	@ConfigProperty(name = "quarkus.application.name", defaultValue = "website-backend")
 	String serviceName;
@@ -104,7 +108,13 @@ public class DeepHealthResource {
 		// kubelet live/ready probes. queryInstant is synchronous, hence @Blocking
 		// on the endpoint.
 		long start = System.currentTimeMillis();
-		boolean up = prometheusHealthClient.queryInstant("vector(1)").isPresent();
+		boolean up;
+		try {
+			up = prometheusHealthClient.queryInstant("vector(1)").isPresent();
+		} catch (PrometheusQueryException e) {
+			LOG.warnf("Prometheus unreachable: %s", e.getMessage());
+			up = false;
+		}
 		long latencyMs = System.currentTimeMillis() - start;
 		deps.add(new DependencyHealth(
 				"prometheus",

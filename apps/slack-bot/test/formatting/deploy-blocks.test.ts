@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import type { DeploymentEvent } from '../../src/types/index.js';
 
 // Set env vars before importing modules that read config
-process.env.TEKTON_DASHBOARD_URL = 'http://tekton.test';
 process.env.ARGOCD_URL = 'https://argocd.test';
 
 const { formatDeploySuccess, formatDeployFailure } =
@@ -52,9 +51,7 @@ describe('formatDeploySuccess', () => {
     expect(commitButton!.url).toContain('github.com');
     expect(commitButton!.url).toContain('abc1234567890');
 
-    const pipelineButton = elements.find((e) => e.text.text === 'View Pipeline Run');
-    expect(pipelineButton).toBeDefined();
-    expect(pipelineButton!.url).toContain('tekton.test');
+    expect(elements.find((e) => e.action_id === 'view_pipeline')).toBeUndefined();
 
     const argoButton = elements.find((e) => e.text.text === 'View in ArgoCD');
     expect(argoButton).toBeDefined();
@@ -89,18 +86,6 @@ describe('formatDeployFailure', () => {
     expect(detailBlock.text.text).toContain('LOCAL');
     expect(detailBlock.text.text).toContain('1m 15s');
     expect(detailBlock.text.text).toContain('def4567'); // short SHA
-  });
-
-  it('shows View Pipeline Logs instead of View Pipeline Run for failures', () => {
-    const blocks = formatDeployFailure(event);
-    const actionsBlock = blocks.find((b) => b.type === 'actions');
-    expect(actionsBlock).toBeDefined();
-
-    const elements = (
-      actionsBlock as { type: 'actions'; elements: Array<{ text: { text: string } }> }
-    ).elements;
-    const logsButton = elements.find((e) => e.text.text === 'View Pipeline Logs');
-    expect(logsButton).toBeDefined();
   });
 
   it('does not include ArgoCD button for failed deployments', () => {

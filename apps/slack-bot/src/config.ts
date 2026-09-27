@@ -40,7 +40,6 @@ export const config = {
   },
   urls: {
     grafana: process.env.GRAFANA_BASE_URL ?? '',
-    tekton: process.env.TEKTON_DASHBOARD_URL ?? '',
     argocd: process.env.ARGOCD_URL ?? '',
   },
   digest: {
@@ -91,5 +90,10 @@ export function missingSettings(): string[] {
   if ((config.consumers.enabled || config.opsFleet.webhookUrl) && !config.redis.url) {
     missing.push('REDIS_URL');
   }
+  // Both or neither: with one alone the forwarder stays off, and the bot would look ready while
+  // no alert reaches the ops host.
+  const { webhookUrl, webhookToken } = config.opsFleet;
+  if (webhookUrl && !webhookToken) missing.push('OPS_FLEET_WEBHOOK_TOKEN');
+  if (webhookToken && !webhookUrl) missing.push('OPS_FLEET_WEBHOOK_URL');
   return missing;
 }

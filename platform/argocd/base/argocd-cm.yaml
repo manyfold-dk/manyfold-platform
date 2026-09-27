@@ -57,5 +57,3 @@ data:
   resource.customizations.ignoreDifferences.all: |
     managedFieldsManagers:
     - kube-controller-manager
-    - tekton-pipelines-controller
-    - tekton-triggers-controller

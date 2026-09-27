@@ -253,6 +253,34 @@ class AccountingMcpToolSurfaceIT {
         description.contains("bankafstemning"), "must state the consequence of the wrong date");
   }
 
+  /**
+   * Without the dev identity (every launch but {@code mvn quarkus:dev}), an anonymous caller is
+   * turned away by {@code @RolesAllowed} before the tool method runs: no refusal from the writer.
+   */
+  @Test
+  void anAnonymousCallerCannotUseAWriteTool() {
+    try (McpStreamableTestClient client = McpAssured.newConnectedStreamableClient()) {
+      client
+          .when()
+          .toolsCall("dinero_create_manual_voucher")
+          .withArguments(
+              Map.of(
+                  "idempotency_key",
+                  "anonymous-" + java.util.UUID.randomUUID(),
+                  "expected_total",
+                  "200.00",
+                  "body",
+                  "{\"Lines\":[{\"Amount\":100.00}]}"))
+          .withErrorAssert(
+              error -> {
+                assertEquals(-32001, error.code());
+                assertTrue(error.message().contains("UnauthorizedException"), error.message());
+              })
+          .send()
+          .thenAssertResults();
+    }
+  }
+
   @Test
   void writeToolClassRequiresWriterRoleBeforeMethodInvocation() {
     RolesAllowed roles = IntegrationWriteMcpTool.class.getAnnotation(RolesAllowed.class);

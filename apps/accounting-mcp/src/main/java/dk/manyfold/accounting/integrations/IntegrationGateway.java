@@ -21,7 +21,8 @@ import java.util.Set;
  *       {@code service} is rejected (404), never a default/guess.
  *   <li><b>Read-only</b> -- only GET/HEAD reach a vendor; any other method is rejected (405). The
  *       MCP tool only ever issues GET, so the read connector is read-only by construction.
- *   <li><b>Audit</b> -- every call (incl. rejections) is attributed via {@link IntegrationAudit}.
+ *   <li><b>Audit</b> -- every call, including one the role gate or a guardrail rejects, is
+ *       attributed via {@link IntegrationAudit}.
  * </ul>
  *
  * <p>The per-vendor guardrails (credential injection, host pinning, rate/size caps, inert-503) live
@@ -63,12 +64,15 @@ public class IntegrationGateway {
    *     non-read method, or whatever guardrail status the vendor proxy raises
    */
   public ProxyResult read(String service, String method, String path, String query) {
-    String subject = identity.requireIntegrationReader().sub();
     long startNanos = System.nanoTime();
     String svc = service == null ? "" : service;
+    // Resolved without the gate, which runs inside the audited block: a caller the gate turns away
+    // (401/403) is in the audit trail too.
+    String subject = identity.auditSubject();
     int status = 500;
     long bytes = 0;
     try {
+      identity.requireIntegrationReader();
       if (!READ_METHODS.contains(method)) {
         throw new WebApplicationException("method not allowed: " + method, 405);
       }

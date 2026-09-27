@@ -15,6 +15,9 @@ on:
           - general
           - security
 
+# The job declares its own permissions; a job added later starts with none.
+permissions: {}
+
 jobs:
   review:
     runs-on: ubuntu-latest

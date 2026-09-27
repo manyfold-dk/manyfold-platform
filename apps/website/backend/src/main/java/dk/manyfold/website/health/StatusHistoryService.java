@@ -38,15 +38,34 @@ public class StatusHistoryService {
 	private static final int LATENCY_POINTS = 48;
 	private static final long LATENCY_STEP_SECONDS = 30 * 60L;
 
+	/**
+	 * The resolution at which a window is re-read sample by sample to drop the
+	 * stale ones. The probes push every two and five minutes, so a minute loses
+	 * nothing.
+	 */
+	private static final long FRESHNESS_STEP_SECONDS = 60;
+
 	private static final String PUBLIC_FRONT = "www";
 	private static final int SECONDS_PER_HOUR = 3600;
 
-	private record Probe(String name, String journey, String vantage) {
+	/**
+	 * One synthetic check, and how old its last push may be before a sample stops
+	 * counting -- the same limit the current status applies to it.
+	 */
+	record Probe(String name, String journey, String vantage, double maxAgeSeconds) {
 	}
 
-	private static final List<Probe> PROBES = List.of(
-			new Probe("From the internet", "edge", "external"),
-			new Probe("From inside the cluster", "smoke", "internal"));
+	static final List<Probe> PROBES = List.of(
+			new Probe(
+					"From the internet",
+					"edge",
+					"external",
+					PublicStatusService.EDGE_PROBE_MAX_AGE_SECONDS),
+			new Probe(
+					"From inside the cluster",
+					"smoke",
+					"internal",
+					PublicStatusService.JOURNEY_PROBE_MAX_AGE_SECONDS));
 
 	/**
 	 * The underlying probes run every two and five minutes, so anything shorter
@@ -75,7 +94,7 @@ public class StatusHistoryService {
 		return cache.get();
 	}
 
-	private StatusHistoryResponse collect() {
+	StatusHistoryResponse collect() {
 		long now = System.currentTimeMillis() / 1000;
 		List<CheckHistory> checks = new ArrayList<>();
 		for (Probe probe : PROBES) {
@@ -85,9 +104,7 @@ public class StatusHistoryService {
 	}
 
 	private Uptime uptimeOf(Probe probe, long now) {
-		String query = String.format(
-				"avg_over_time(synthetic_check_up{front=\"%s\",journey=\"%s\",vantage=\"%s\"}[%ds])",
-				PUBLIC_FRONT, probe.journey(), probe.vantage(), UPTIME_BUCKET_SECONDS);
+		String query = averageOfFresh("synthetic_check_up", probe, UPTIME_BUCKET_SECONDS);
 
 		long start = now - (UPTIME_BUCKETS - 1L) * UPTIME_BUCKET_SECONDS;
 		List<Double> buckets = prometheusClient.queryRange(query, start, now, UPTIME_BUCKET_SECONDS);
@@ -97,10 +114,7 @@ public class StatusHistoryService {
 	}
 
 	private Latency latencyOf(Probe probe, long now) {
-		String query = String.format(
-				"avg_over_time(synthetic_check_duration_seconds"
-						+ "{front=\"%s\",journey=\"%s\",vantage=\"%s\"}[%ds])",
-				PUBLIC_FRONT, probe.journey(), probe.vantage(), LATENCY_STEP_SECONDS);
+		String query = averageOfFresh("synthetic_check_duration_seconds", probe, LATENCY_STEP_SECONDS);
 
 		long start = now - (LATENCY_POINTS - 1L) * LATENCY_STEP_SECONDS;
 		List<Double> seconds = prometheusClient.queryRange(query, start, now, LATENCY_STEP_SECONDS);
@@ -112,6 +126,40 @@ public class StatusHistoryService {
 
 		int hours = (int) (LATENCY_POINTS * LATENCY_STEP_SECONDS / SECONDS_PER_HOUR);
 		return new Latency(hours, (int) (LATENCY_STEP_SECONDS / 60), millis, latest(millis));
+	}
+
+	/**
+	 * The average of one probe metric over a window, counting only fresh samples.
+	 *
+	 * <p>
+	 * The Pushgateway never expires a push, and Prometheus keeps scraping the last
+	 * one: a probe that stopped running still reads as a steady stream of samples,
+	 * usually "up". So the window is re-read minute by minute through a subquery,
+	 * and a minute counts only while the run timestamp pushed with that sample is
+	 * within the probe's maximum age. A window with no fresh sample has no value,
+	 * and the history shows it as the gap it is.
+	 *
+	 * <p>
+	 * {@code and} matches each sample to the timestamp from the same push (the same
+	 * label set). {@code max by} then folds the result into one series per probe:
+	 * the series carry the Pushgateway pod's name, so a restarted Pushgateway would
+	 * otherwise split the history in two, and the range query reads one series.
+	 */
+	static String averageOfFresh(String metric, Probe probe, long windowSeconds) {
+		String selector = String.format(
+				"{front=\"%s\",journey=\"%s\",vantage=\"%s\"}",
+				PUBLIC_FRONT,
+				probe.journey(),
+				probe.vantage());
+		return String.format(
+				"avg_over_time((max by (front, journey, vantage) (%s%s"
+						+ " and (time() - synthetic_run_timestamp_seconds%s <= %d)))[%ds:%ds])",
+				metric,
+				selector,
+				selector,
+				Math.round(probe.maxAgeSeconds()),
+				windowSeconds,
+				FRESHNESS_STEP_SECONDS);
 	}
 
 	private static Double mean(List<Double> values) {

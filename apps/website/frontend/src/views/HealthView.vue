@@ -90,7 +90,10 @@ const healthSummary = computed(() => {
     {
       label: 'Pipelines',
       status: health.value.pipelines.status,
-      detail: `${health.value.pipelines.successfulRuns24h}/${health.value.pipelines.totalRuns24h} successful`
+      detail:
+        health.value.pipelines.status === 'unknown'
+          ? 'no pipeline source'
+          : `${health.value.pipelines.successfulRuns24h}/${health.value.pipelines.totalRuns24h} successful`
     },
     {
       label: 'Applications',
@@ -101,9 +104,9 @@ const healthSummary = computed(() => {
 })
 
 // Name the components that are not healthy, or say how many are. This used to
-// read platform.tekton.name, which the API has never returned: against the real
-// backend it threw and took the whole summary panel with it, and only the e2e
-// mock -- which invented a `tekton` component -- kept the tests green.
+// read a named component the API has never returned: against the real backend
+// it threw and took the whole summary panel with it, and only the e2e mock,
+// which invented that component, kept the tests green.
 function platformDetail(platform: PlatformHealth) {
   const components = [
     platform.edge,
@@ -117,15 +120,19 @@ function platformDetail(platform: PlatformHealth) {
   return unwell.map((c) => `${c.name}: ${c.status}`).join(', ')
 }
 
+// Unknown means nothing measured the signal this pass (Prometheus did not
+// answer, say): a gap in the monitoring, not a fault, so it is not drawn red.
 const statusColor = (status: string) => {
   if (status === 'healthy') return 'bg-emerald-100 text-emerald-800'
   if (status === 'degraded') return 'bg-amber-100 text-amber-800'
+  if (status === 'unknown') return 'bg-slate-100 text-slate-600'
   return 'bg-red-100 text-red-800'
 }
 
 const statusDot = (status: string) => {
   if (status === 'healthy') return 'bg-emerald-500'
   if (status === 'degraded') return 'bg-amber-500'
+  if (status === 'unknown') return 'bg-slate-400'
   return 'bg-red-500'
 }
 
@@ -165,16 +172,20 @@ function scoreStatus(status: string): number {
   return 1
 }
 
+// Score the measured layers only: an unknown layer (today the pipelines block, which has no
+// source since the Tekton controller was retired) leaves both the score and its ceiling.
 function summarizeHealthTrend(): string {
   if (!health.value) return ''
-  const score = [
-    scoreStatus(health.value.infrastructure.status),
-    scoreStatus(health.value.cluster.status),
-    scoreStatus(health.value.platform.status),
-    scoreStatus(health.value.pipelines.status),
-    scoreStatus(health.value.applications.status)
-  ].reduce((total, value) => total + value, 0)
-  return `${score}/15`
+  const measured = [
+    health.value.infrastructure.status,
+    health.value.cluster.status,
+    health.value.platform.status,
+    health.value.pipelines.status,
+    health.value.applications.status
+  ].filter((status) => status !== 'unknown')
+  if (measured.length === 0) return 'unknown'
+  const score = measured.map(scoreStatus).reduce((total, value) => total + value, 0)
+  return `${score}/${measured.length * 3}`
 }
 
 function addToast(type: 'success' | 'error', text: string) {

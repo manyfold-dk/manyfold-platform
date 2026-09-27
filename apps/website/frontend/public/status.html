@@ -372,6 +372,12 @@
         background: rgba(255, 51, 102, 0.05);
       }
 
+      .service-status.unknown {
+        color: var(--text-secondary);
+        border-color: var(--border-color);
+        background: transparent;
+      }
+
       .service-row.info-only {
         opacity: 0.6;
       }
@@ -530,8 +536,14 @@
       function mapStatus(healthStatus) {
         if (healthStatus === 'healthy') return 'operational'
         if (healthStatus === 'degraded') return 'degraded'
+        // The API says unknown when nothing measured the layer this pass -- a
+        // Prometheus that did not answer, say. That is a gap in the monitoring,
+        // not an outage, and reads the way /status words it.
+        if (healthStatus === 'unknown') return 'unknown'
         return 'outage'
       }
+
+      const statusLabels = { unknown: 'not measured' }
 
       function computeOverallStatus(data) {
         const layers = [
@@ -565,6 +577,7 @@
             .join(' | ')
         }
         if (name === 'Pipelines') {
+          if (data.status === 'unknown') return 'Pipeline metrics unavailable'
           const rate = data.successRate != null ? data.successRate.toFixed(0) : '—'
           return `${data.successfulRuns24h} OK, ${data.failedRuns24h} failed / ${data.totalRuns24h} runs (24h) | ${rate}% success rate`
         }
@@ -644,7 +657,7 @@
                             <div class="service-detail">${detail}</div>
                         </div>
                         <div class="service-status ${status}">
-                            <span>${status}</span>
+                            <span>${statusLabels[status] || status}</span>
                         </div>
                     </div>
                 `

@@ -18,7 +18,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 
 /**
- * Receives pipeline completion webhooks from Tekton and publishes to Redis
+ * Receives pipeline completion webhooks from a CI engine and publishes to Redis
  * Streams.
  */
 @Path("/api/v1/pipeline")
@@ -37,7 +37,7 @@ public class PipelineWebhookResource {
 	/** Receive a pipeline completion event. */
 	@POST
 	@Path("/webhook")
-	@Operation(summary = "Pipeline webhook", description = "Receives pipeline completion events from Tekton")
+	@Operation(summary = "Pipeline webhook", description = "Receives pipeline completion events from a CI engine")
 	public Response receivePipelineEvent(
 			@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, PipelineEvent event) {
 		if (!webhookAuth.isAuthorized(authorization)) {

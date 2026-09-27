@@ -1,5 +1,6 @@
 package dk.manyfold.website.health;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -15,6 +16,7 @@ import java.util.Optional;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -64,39 +66,68 @@ public class PrometheusHealthClient {
 		}
 	}
 
-	/** Query a single instant metric value. */
-	public Optional<Double> queryInstant(String query) {
+	/**
+	 * Query a single instant metric value.
+	 *
+	 * @return the first series' value, or empty when the query matched no series
+	 * @throws PrometheusQueryException
+	 *             when Prometheus gave no usable answer -- unreachable, an error
+	 *             status, or a body that is not a query result. Empty is a
+	 *             measurement (nothing matched); this is the absence of one, and a
+	 *             caller has to be able to tell them apart.
+	 */
+	public Optional<Double> queryInstant(String query) throws PrometheusQueryException {
+		String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
+		String url = prometheusUrl + "/api/v1/query?query=" + encodedQuery;
+
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(url))
+				.timeout(TIMEOUT)
+				.GET()
+				.build();
+
+		HttpResponse<String> response;
 		try {
-			String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
-			String url = prometheusUrl + "/api/v1/query?query=" + encodedQuery;
+			response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		} catch (IOException e) {
+			throw new PrometheusQueryException("Prometheus did not answer: " + e, e);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new PrometheusQueryException("Prometheus query interrupted", e);
+		}
+		int code = response.statusCode();
 
-			HttpRequest request = HttpRequest.newBuilder()
-					.uri(URI.create(url))
-					.timeout(TIMEOUT)
-					.GET()
-					.build();
+		JsonNode root;
+		try {
+			root = objectMapper.readTree(response.body());
+		} catch (JsonProcessingException e) {
+			throw new PrometheusQueryException(
+					String.format("Prometheus answered %d with a body that is not JSON", code), e);
+		}
 
-			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		JsonNode result = root.path("data").path("result");
+		boolean answered = code == 200
+				&& "success".equals(root.path("status").asText())
+				&& result.isArray();
+		if (!answered) {
+			throw new PrometheusQueryException(
+					String.format("Prometheus answered %d: %s", code,
+							root.path("error").asText("no result")));
+		}
 
-			if (response.statusCode() != 200) {
-				LOG.warnf("Prometheus query failed with status %d", response.statusCode());
-				return Optional.empty();
-			}
-
-			JsonNode root = objectMapper.readTree(response.body());
-			JsonNode result = root.path("data").path("result");
-
-			if (result.isArray() && !result.isEmpty()) {
-				JsonNode value = result.get(0).path("value");
-				if (value.isArray() && value.size() > 1) {
-					return Optional.of(Double.parseDouble(value.get(1).asText()));
-				}
-			}
-
+		if (result.isEmpty()) {
 			return Optional.empty();
-		} catch (Exception e) {
-			LOG.warnf(e, "Prometheus query failed");
-			return Optional.empty();
+		}
+
+		JsonNode value = result.get(0).path("value");
+		if (!value.isArray() || value.size() < 2) {
+			throw new PrometheusQueryException("Prometheus answered with a sample that has no value");
+		}
+		try {
+			return Optional.of(Double.parseDouble(value.get(1).asText()));
+		} catch (NumberFormatException e) {
+			throw new PrometheusQueryException(
+					"Prometheus answered with an unreadable sample: " + value, e);
 		}
 	}
 
@@ -216,44 +247,64 @@ public class PrometheusHealthClient {
 	}
 
 	/** Get ArgoCD application sync status count. */
-	public int getArgoCDSyncedApps() {
+	public int getArgoCDSyncedApps() throws PrometheusQueryException {
 		return queryInstant("count(argocd_app_info{sync_status=\"Synced\"})")
 				.map(Double::intValue)
 				.orElse(0);
 	}
 
 	/** Get ArgoCD degraded application count. */
-	public int getArgoCDDegradedApps() {
+	public int getArgoCDDegradedApps() throws PrometheusQueryException {
 		return queryInstant("count(argocd_app_info{health_status=\"Degraded\"})")
 				.map(Double::intValue)
 				.orElse(0);
 	}
 
-	private static final String TEKTON_METRIC = "tekton_pipelines_controller_pipelinerun_total";
+	/**
+	 * One series per Argo CD Application. argocd_app_info is one series per label
+	 * combination, and several labels change while the Application stays the same:
+	 * health_status whenever its health moves, pod and instance when the
+	 * application controller restarts. The Application's own namespace arrives as
+	 * exported_namespace, because the scrape target's namespace takes the namespace
+	 * label.
+	 */
+	private static final String PER_APPLICATION = "max by (exported_namespace, name) ";
 
-	/** Get Tekton pipeline success rate (last 24h). Returns -1 if no data. */
-	public double getTektonSuccessRate() {
-		String success = "sum(increase(" + TEKTON_METRIC + "{status=\"success\"}[24h]))";
-		String total = "sum(increase(" + TEKTON_METRIC + "[24h]))";
-		String query = "100 * " + success + " / " + total;
-		return queryInstant(query).orElse(-1.0);
-	}
-
-	/** Get total Tekton pipeline runs in the last 24h. */
-	public int getTektonTotalRuns() {
-		String query = "sum(increase(" + TEKTON_METRIC + "[24h]))";
-		return queryInstant(query).map(Double::intValue).orElse(0);
-	}
-
-	/** Get successful Tekton pipeline runs in the last 24h. */
-	public int getTektonSuccessfulRuns() {
-		String query = "sum(increase(" + TEKTON_METRIC + "{status=\"success\"}[24h]))";
-		return queryInstant(query).map(Double::intValue).orElse(0);
-	}
-
-	/** Get failed Tekton pipeline runs in the last 24h. */
-	public int getTektonFailedRuns() {
-		String query = "sum(increase(" + TEKTON_METRIC + "{status=\"failed\"}[24h]))";
+	/**
+	 * Count the Argo CD Applications that have been OutOfSync without a break for
+	 * at least {@code minutes}.
+	 *
+	 * <p>
+	 * Every merge leaves some Application OutOfSync until Argo CD has applied it,
+	 * so OutOfSync on its own is the normal state of a sync window, not a fault. An
+	 * Application that stays OutOfSync is one Argo CD cannot bring into line.
+	 *
+	 * <p>
+	 * The query reads, per Application: OutOfSync now, and OutOfSync
+	 * {@code minutes} ago, unless it reported any other sync status at any scrape
+	 * in between.
+	 * <ul>
+	 * <li>The {@code offset} term is what makes a new Application wait its turn: it
+	 * has no history of being in sync, so without it it would count from its first
+	 * scrape.
+	 * <li>The {@code max_over_time} term reads the raw samples in the window, not a
+	 * sampled subquery, so a Synced scrape anywhere in it resets the clock however
+	 * briefly the Application was in sync.
+	 * <li>A gap in the metrics (the controller restarting) neither starts nor
+	 * resets the clock: nothing in it says the Application was in sync.
+	 * </ul>
+	 *
+	 * @return the number of such Applications; zero when there are none
+	 */
+	public int getArgoCDAppsOutOfSyncFor(long minutes) throws PrometheusQueryException {
+		String query = String.format(
+				"count(%1$s(argocd_app_info{sync_status=\"OutOfSync\"})"
+						+ " and on (exported_namespace, name)"
+						+ " %1$s(argocd_app_info{sync_status=\"OutOfSync\"} offset %2$dm)"
+						+ " unless on (exported_namespace, name)"
+						+ " %1$s(max_over_time("
+						+ "argocd_app_info{sync_status!=\"OutOfSync\"}[%2$dm])))",
+				PER_APPLICATION, minutes);
 		return queryInstant(query).map(Double::intValue).orElse(0);
 	}
 
@@ -270,9 +321,14 @@ public class PrometheusHealthClient {
 	 * alerts" on a completely healthy platform.
 	 */
 	public int getFiringAlerts() {
-		return queryInstant("count(ALERTS{alertstate=\"firing\",severity=~\"warning|critical\"})")
-				.map(Double::intValue)
-				.orElse(0);
+		try {
+			return queryInstant("count(ALERTS{alertstate=\"firing\",severity=~\"warning|critical\"})")
+					.map(Double::intValue)
+					.orElse(0);
+		} catch (PrometheusQueryException e) {
+			LOG.warnf("Firing alert count unavailable, reporting none: %s", e.getMessage());
+			return 0;
+		}
 	}
 
 	private static final String SYNTHETIC_METRICS = "synthetic_check_up|synthetic_check_duration_seconds"
@@ -313,6 +369,11 @@ public class PrometheusHealthClient {
 	public Optional<Double> getCertificateDaysRemaining(String instance) {
 		String query = String.format(
 				"min(probe_ssl_earliest_cert_expiry{instance=\"%s\"} - time()) / 86400", instance);
-		return queryInstant(query);
+		try {
+			return queryInstant(query);
+		} catch (PrometheusQueryException e) {
+			LOG.warnf("Certificate expiry unavailable: %s", e.getMessage());
+			return Optional.empty();
+		}
 	}
 }

@@ -1,6 +1,6 @@
 package dk.manyfold.website.api.v1.model;
 
-/** Event representing a Tekton pipeline completion. */
+/** Event representing a CI pipeline completion. */
 public record PipelineEvent(
 		String pipeline,
 		String runName,

@@ -53,12 +53,46 @@ public class IntegrationWriteExecutor {
       boolean deduplicated, boolean success, int vendorStatus, String vendorId, String error) {}
 
   /**
-   * Fails fast on the writer role before a tool performs expensive request decoding. The full write
-   * still goes through {@link #execute} so authorization, actor attribution, idempotency, and audit
-   * remain one envelope.
+   * Fails fast on the writer role before a front door performs expensive request decoding. The full
+   * write still goes through {@link #execute} so authorization, actor attribution, idempotency, and
+   * audit remain one envelope. The gate records a refusal (401/403) in the write audit trail before
+   * rethrowing it.
+   *
+   * @param vendor the vendor the caller addressed, unvalidated; the audit bounds it
+   * @param operation the write operation the caller attempted
    */
-  public void requireWriter() {
-    identity.requireIntegrationWriter();
+  public void requireWriter(String vendor, String operation) {
+    writerActor(vendor, operation, System.nanoTime());
+  }
+
+  /**
+   * The writer gate, inside the audited block (issue #503, as #502 did for reads): the subject is
+   * resolved without the gate, so a caller the gate turns away -- 401 unauthenticated, 403 without
+   * the role -- is recorded under it. The refusal always reaches the caller unchanged: an audit
+   * failure is attached to it, never thrown in its place.
+   *
+   * @return the authorized caller's subject, the actor of the write
+   */
+  private String writerActor(String vendor, String operation, long startNanos) {
+    String subject = identity.auditSubject();
+    try {
+      return identity.requireIntegrationWriter().sub();
+    } catch (WebApplicationException refused) {
+      try {
+        audit.recordWrite(
+            vendor,
+            subject,
+            operation,
+            null,
+            effectiveStatus(refused),
+            null,
+            false,
+            millis(startNanos));
+      } catch (RuntimeException auditFailure) {
+        refused.addSuppressed(auditFailure);
+      }
+      throw refused;
+    }
   }
 
   private enum ClaimKind {
@@ -115,7 +149,7 @@ public class IntegrationWriteExecutor {
       String legacyRequestHash,
       String inputsSummary,
       WriteAction action) {
-    String actor = identity.requireIntegrationWriter().sub();
+    String actor = writerActor(vendor, operation, System.nanoTime());
     return run(
         vendor,
         operation,
@@ -243,8 +277,9 @@ public class IntegrationWriteExecutor {
       audit.recordWrite(
           vendor, actor, operation, key, res.vendorStatus(), res.vendorId(), false, millis(start));
       // MUST reach the caller: the financial document EXISTS at the vendor. An agent that reads
-      // this as a generic 500 and retries would double-post it.
-      throw new GuardrailException(
+      // this as a generic 500 and retries would double-post it. Its own type, so a front door that
+      // answers plain guardrails with a status only still recognises it (the cause is a DB error).
+      throw new UnrecordedWriteException(
           "vendor write succeeded but recording it failed; do NOT retry -- reconcile with the vendor",
           500,
           finalizeEx);

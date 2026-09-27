@@ -5,7 +5,12 @@ import { config } from '../config.js';
 import { acknowledgeMessage } from '../services/redis-client.js';
 import { consumeStream } from './consume.js';
 import type { createOpsFleetForwarder } from '../services/ops-fleet-forwarder.js';
-import { formatAlertFiring, formatAlertResolved } from '../formatting/alert-blocks.js';
+import {
+  alertFiringText,
+  alertResolvedText,
+  formatAlertFiring,
+  formatAlertResolved,
+} from '../formatting/alert-blocks.js';
 import type { AlertEvent } from '../types/index.js';
 import { BoundedMap, BoundedSet } from '../services/bounded.js';
 
@@ -70,12 +75,25 @@ export function startAlertConsumer(
       return;
     }
 
+    // #alerts belongs to Alertmanager's own `slack` receiver (kube-prometheus-stack
+    // values-cloud.yaml). Every alert on this stream has reached it too: the backend webhook
+    // route matches the same warning|critical alerts, and the only alert routed to the backend
+    // alone is the Watchdog, handled above. A post from here is therefore a duplicate unless it
+    // offers what that receiver cannot -- the Restart Pod button, shown for an alert that names a
+    // pod. Only such alerts and their resolutions are posted; every alert is still forwarded.
+    const postToSlack = Boolean(alert.pod);
+
     try {
-      if (alert.status === 'firing') {
+      if (!postToSlack) {
+        logger.debug(
+          { alert: alert.alertName, fingerprint: alert.fingerprint },
+          'Alert left to the Alertmanager Slack receiver',
+        );
+      } else if (alert.status === 'firing') {
         const result = await app.client.chat.postMessage({
           channel: config.channels.alerts,
           blocks: formatAlertFiring(alert),
-          text: `${alert.severity.toUpperCase()}: ${alert.alertName} in ${alert.namespace}`,
+          text: alertFiringText(alert),
         });
 
         if (result.ts) {
@@ -98,7 +116,7 @@ export function startAlertConsumer(
           channel: config.channels.alerts,
           thread_ts: originalTs,
           blocks: formatAlertResolved(alert, duration),
-          text: `RESOLVED: ${alert.alertName} in ${alert.namespace}`,
+          text: alertResolvedText(alert),
         });
 
         alertMessageMap.delete(alert.fingerprint);

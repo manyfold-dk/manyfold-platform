@@ -128,7 +128,7 @@ public class DineroWriter implements VendorWriter {
     JsonNode draft = getJson("v1/" + org() + "/invoices/" + invoiceGuid);
     BigDecimal total = decimal(draft, "TotalInclVat");
     if (total == null) {
-      throw new VendorWriteException(502, "could not read invoice TotalInclVat before booking");
+      throw new GuardrailException("could not read invoice TotalInclVat before booking", 502);
     }
     if (expectedTotal.compareTo(total) != 0) {
       throw new GuardrailException(
@@ -141,7 +141,7 @@ public class DineroWriter implements VendorWriter {
     }
     String timestamp = text(draft, "TimeStamp");
     if (timestamp == null) {
-      throw new VendorWriteException(502, "could not read invoice TimeStamp before booking");
+      throw new GuardrailException("could not read invoice TimeStamp before booking", 502);
     }
     Result r =
         postRaw(
@@ -299,8 +299,8 @@ public class DineroWriter implements VendorWriter {
     JsonNode draft = getJson("v1/" + org() + "/vouchers/purchase/" + voucherGuid);
     BigDecimal total = purchaseVoucherTotal(draft);
     if (total == null) {
-      throw new VendorWriteException(
-          502, "could not read purchase voucher VoucherTotals Total before booking");
+      throw new GuardrailException(
+          "could not read purchase voucher VoucherTotals Total before booking", 502);
     }
     if (expectedTotal.compareTo(total) != 0) {
       String currency = text(draft, "CurrencyKey");
@@ -316,8 +316,7 @@ public class DineroWriter implements VendorWriter {
     }
     String timestamp = text(draft, "Timestamp");
     if (timestamp == null) {
-      throw new VendorWriteException(
-          502, "could not read purchase voucher Timestamp before booking");
+      throw new GuardrailException("could not read purchase voucher Timestamp before booking", 502);
     }
     Result r =
         postRaw(
@@ -580,19 +579,25 @@ public class DineroWriter implements VendorWriter {
     }
   }
 
+  /**
+   * Reads a 2xx answer as JSON. An empty or malformed body is a local failure, not a vendor one:
+   * Dinero answered 2xx, so there is no vendor error status to record, and the 502 is the client's
+   * status only. A write's own answer is read in {@link #readResult}, which turns this failure into
+   * an unknown outcome.
+   */
   private static JsonNode readJson(Response resp, String context) {
     String body = resp.readEntity(String.class);
     if (body == null || body.isBlank()) {
-      throw new VendorWriteException(502, context + " returned an empty body");
+      throw new GuardrailException(context + " returned an empty body", 502);
     }
     try {
       JsonNode node = JSON.readTree(body);
       if (node == null) {
-        throw new VendorWriteException(502, context + " returned an empty body");
+        throw new GuardrailException(context + " returned an empty body", 502);
       }
       return node;
     } catch (JsonProcessingException e) {
-      throw VendorWriteException.unreadable(502, context + " returned invalid JSON", e);
+      throw new GuardrailException(context + " returned invalid JSON", 502, e);
     }
   }
 

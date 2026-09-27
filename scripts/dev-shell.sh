@@ -240,6 +240,7 @@ start_interactive() {
     docker run --rm -it \
         --name "${CONTAINER_NAME}-temp" \
         -v "$PROJECT_DIR:/workspace" \
+        -e LOCAL_WORKSPACE_FOLDER="$PROJECT_DIR" \
         "${VOLUME_MOUNTS[@]}" \
         -w /workspace \
         -p 8080:8080 \
@@ -327,6 +328,7 @@ start_daemon() {
         docker run -d -it \
             --name "$CONTAINER_NAME" \
             -v "$PROJECT_DIR:/workspace" \
+            -e LOCAL_WORKSPACE_FOLDER="$PROJECT_DIR" \
             "${VOLUME_MOUNTS[@]}" \
             -w /workspace \
             -p 8080:8080 \

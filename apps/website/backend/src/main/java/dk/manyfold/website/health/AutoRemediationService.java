@@ -25,8 +25,16 @@ public class AutoRemediationService {
 
 	private static final Logger LOG = Logger.getLogger(AutoRemediationService.class);
 
-	/** Alert names that trigger a pod restart. */
-	private static final Set<String> POD_RESTART_ALERTS = Set.of(
+	/**
+	 * Alert names that trigger a pod restart: alerts whose {@code pod} label names
+	 * the pod the alert is about, and for which restarting it is the remedy.
+	 *
+	 * <p>
+	 * This service restarts these alerts' pods without approval. The slack-bot's
+	 * Restart Pod button, which goes through approval, is offered for a wider set:
+	 * {@link RedisEventPublisher#SUBJECT_POD_ALERTS} includes this one.
+	 */
+	static final Set<String> POD_RESTART_ALERTS = Set.of(
 			"KubePodCrashLooping",
 			"KubePodNotReady");
 

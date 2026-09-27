@@ -88,7 +88,20 @@ const inFlight = new Map<string, Promise<unknown>>();
 const pendingRejections = new BoundedSet<string>(1_000);
 // Approval claims that timed out and are being withdrawn: their write may still land. A later
 // claim that finds exactly this value may take the key over.
-const withdrawing = new Map<string, string>();
+//
+// Bounded in number and kept for the ops host's approval window only: during a long Redis outage
+// each claim's write stays pending, so the cleanup below never runs for it. Forgetting a record
+// keeps approvals fail-closed: a later claim then finds the unsent approval standing and sends
+// nothing. What is lost is the retry, and past the window the host would refuse that anyway.
+const WITHDRAW_WINDOW_MS = 15 * 60_000;
+const withdrawing = new BoundedMap<string, string>(1_000);
+
+function withdraw(actionId: string, value: string): void {
+  withdrawing.set(actionId, value);
+  setTimeout(() => {
+    if (withdrawing.get(actionId) === value) withdrawing.delete(actionId);
+  }, WITHDRAW_WINDOW_MS).unref?.();
+}
 
 function serialised<T>(actionId: string, work: () => Promise<T>): Promise<T> {
   const previous = inFlight.get(actionId) ?? Promise.resolve();
@@ -135,7 +148,7 @@ async function claim(actionId: string, decision: OpsDecision): Promise<Claim> {
       logger.warn({ err, actionId }, 'ops decision: Redis unavailable, approval not sent');
       // The write may still land once Redis answers. The operator was told nothing was sent,
       // so a late claim is withdrawn rather than left to refuse the retry.
-      withdrawing.set(actionId, value);
+      withdraw(actionId, value);
       write
         .then((late) =>
           serialised(actionId, async () => {

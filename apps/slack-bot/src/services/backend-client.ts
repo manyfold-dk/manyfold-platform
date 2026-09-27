@@ -37,8 +37,9 @@ interface BackendHealthResponse {
   };
   platform: {
     status: string;
+    edge: { name: string; status: string; details: string };
+    identity: { name: string; status: string; details: string };
     argocd: { name: string; status: string; details: string };
-    tekton: { name: string; status: string; details: string };
     registry: { name: string; status: string; details: string };
     observability: { name: string; status: string; details: string };
   };
@@ -75,18 +76,25 @@ function transformHealthResponse(raw: BackendHealthResponse): HealthResponse {
       name: 'Platform',
       status: raw.platform.status as HealthResponse['overall'],
       details: [
+        raw.platform.edge,
+        raw.platform.identity,
         raw.platform.argocd,
-        raw.platform.tekton,
         raw.platform.registry,
         raw.platform.observability,
       ]
+        .filter((c) => c)
         .map((c) => `${c.name}: ${statusLabel(c.status)}`)
         .join(' | '),
     },
     {
       name: 'Pipelines',
       status: raw.pipelines.status as HealthResponse['overall'],
-      details: `${raw.pipelines.successfulRuns24h} OK, ${raw.pipelines.failedRuns24h} failed / ${raw.pipelines.totalRuns24h} runs (24h) | ${Math.round(raw.pipelines.successRate)}% success rate`,
+      // The block has no source since the Tekton controller was retired; its zero counts are
+      // not measurements.
+      details:
+        raw.pipelines.status === 'unknown'
+          ? 'no pipeline source'
+          : `${raw.pipelines.successfulRuns24h} OK, ${raw.pipelines.failedRuns24h} failed / ${raw.pipelines.totalRuns24h} runs (24h) | ${Math.round(raw.pipelines.successRate)}% success rate`,
     },
     {
       name: 'Applications',

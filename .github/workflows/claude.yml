@@ -12,6 +12,9 @@ on:
         required: false
         type: string
 
+# The job declares its own permissions; a job added later starts with none.
+permissions: {}
+
 jobs:
   claude:
     runs-on: ubuntu-latest

@@ -8,6 +8,9 @@ on:
         required: true
         type: number
 
+# The job declares its own permissions; a job added later starts with none.
+permissions: {}
+
 jobs:
   claude-review:
     # Optional: Filter by PR author

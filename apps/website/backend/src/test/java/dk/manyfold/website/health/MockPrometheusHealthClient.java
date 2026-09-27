@@ -39,8 +39,8 @@ public class MockPrometheusHealthClient extends PrometheusHealthClient {
 	}
 
 	@Override
-	public double getTektonSuccessRate() {
-		return 95.0;
+	public int getArgoCDAppsOutOfSyncFor(long minutes) {
+		return 0;
 	}
 
 	@Override

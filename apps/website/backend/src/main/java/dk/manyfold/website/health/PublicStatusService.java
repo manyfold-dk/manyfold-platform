@@ -50,11 +50,14 @@ public class PublicStatusService {
 	/** The public site, as the synthetic probes label it (ADR-0036). */
 	private static final String PUBLIC_FRONT = "www";
 
-	/** Cloudflare Worker, every 2 minutes: five missed runs and it is stale. */
-	private static final double EDGE_PROBE_MAX_AGE_SECONDS = 600;
+	/**
+	 * Cloudflare Worker, every 2 minutes: five missed runs and it is stale. The
+	 * status history applies the same rule to every sample it draws.
+	 */
+	static final double EDGE_PROBE_MAX_AGE_SECONDS = 600;
 
 	/** In-cluster browser journey, every 5 minutes. */
-	private static final double JOURNEY_PROBE_MAX_AGE_SECONDS = 1800;
+	static final double JOURNEY_PROBE_MAX_AGE_SECONDS = 1800;
 
 	/**
 	 * cert-manager renews at two thirds of a 90-day certificate's life, so roughly

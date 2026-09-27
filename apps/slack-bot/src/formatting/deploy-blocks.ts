@@ -83,19 +83,6 @@ function buildDeployActions(event: DeploymentEvent): KnownBlock | null {
     });
   }
 
-  if (config.urls.tekton) {
-    const pipelineUrl = `${config.urls.tekton}/#/namespaces/tekton-builds/pipelineruns/${event.runName}`;
-    elements.push({
-      type: 'button',
-      text: {
-        type: 'plain_text',
-        text: event.status === 'succeeded' ? 'View Pipeline Run' : 'View Pipeline Logs',
-      },
-      url: pipelineUrl,
-      action_id: 'view_pipeline',
-    });
-  }
-
   if (event.status === 'succeeded' && config.urls.argocd) {
     const argoUrl = `${config.urls.argocd}/applications/${event.pipeline}`;
     elements.push({

@@ -238,6 +238,40 @@ class IntegrationWriteExecutorTest {
     assertNull(row(key).vendorStatus); // no vendor response was read
   }
 
+  /**
+   * The vendor call succeeded, then the SUCCESS update failed: PostgreSQL rejects a NUL character
+   * in text, which stands in for any database failure on that commit. The document exists at the
+   * vendor, so the row must stay PENDING and a same-key retry must never reach the vendor again.
+   */
+  @Test
+  @TestSecurity(user = "agent", roles = "integration-writer")
+  void aVendorSuccessTheLedgerCannotRecordKeepsTheKeyReserved() {
+    String key = freshKey();
+
+    UnrecordedWriteException first =
+        assertThrows(
+            UnrecordedWriteException.class,
+            () -> write(key, "h1", () -> new WriteResult(201, "file\u0000guid")));
+    assertEquals(500, first.getResponse().getStatus());
+    assertTrue(first.getMessage().contains("do NOT retry"));
+    assertEquals(IntegrationWriteStatus.PENDING, row(key).status);
+
+    AtomicInteger calls = new AtomicInteger();
+    GuardrailException retry =
+        assertThrows(
+            GuardrailException.class,
+            () ->
+                write(
+                    key,
+                    "h1",
+                    () -> {
+                      calls.incrementAndGet();
+                      return new WriteResult(201, "dup");
+                    }));
+    assertEquals(409, retry.getResponse().getStatus());
+    assertEquals(0, calls.get());
+  }
+
   @Test
   @TestSecurity(user = "agent", roles = "integration-writer")
   void aKeyRecordedUnderTheOlderHashStillDeduplicates() {

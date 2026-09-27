@@ -11,8 +11,9 @@ import jakarta.ws.rs.WebApplicationException;
  *
  * <p>The client-facing response is a {@code 502 Bad Gateway} -- an upstream failure is not the
  * caller's fault, so we never reflect the vendor's 4xx back as the caller's own status. Local
- * pre-flight failures (rate limit, inert-503, host-pin) are NOT vendor failures and keep their own
- * {@link WebApplicationException} status instead of using this type.
+ * failures (rate limit, inert-503, host-pin, a connection that never opened, a 2xx answer the
+ * connector cannot use) are NOT vendor failures: they are a {@link GuardrailException} with their
+ * own status instead of this type, so the ledger records no vendor status for them.
  *
  * <p><b>The status alone is not enough to act on.</b> Pinning the client-facing status at 502 once
  * cost a whole booking session (2026-08-02): two ordinary Dinero {@code 400 Validation Error}
@@ -33,12 +34,6 @@ public class VendorWriteException extends WebApplicationException {
 
   public VendorWriteException(int upstreamStatus, String message, String vendorDetail) {
     this(upstreamStatus, message, vendorDetail, null);
-  }
-
-  /** A vendor response that could not be read; the cause is kept for the server log only. */
-  public static VendorWriteException unreadable(
-      int upstreamStatus, String message, Throwable cause) {
-    return new VendorWriteException(upstreamStatus, message, null, cause);
   }
 
   protected VendorWriteException(
