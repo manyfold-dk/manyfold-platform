@@ -23,7 +23,7 @@ cr                   # Resume with session picker
 
 # Parallel sessions (isolated worktrees)
 ws start my-feature  # Create worktree + branch
-cd ~/.manyfold-worktrees/manyfold-platform/my-feature
+cd ~/.manyfold-worktrees/<checkout>/my-feature
 claude               # Start Claude in isolation
 ```
 

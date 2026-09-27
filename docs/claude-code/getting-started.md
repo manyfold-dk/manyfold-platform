@@ -42,7 +42,7 @@ c                    # Start a new Claude session
 cc                   # Pick up where you left off
 cr                   # Choose from recent sessions
 ws start my-feature  # Create isolated worktree session
-cd ~/.manyfold-worktrees/manyfold-platform/my-feature
+cd ~/.manyfold-worktrees/<checkout>/my-feature
 cy                   # Full auto-approve mode (use carefully!)
 ```
 

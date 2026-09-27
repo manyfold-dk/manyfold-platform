@@ -25,7 +25,7 @@ Git worktrees allow you to have multiple working directories from the same repos
 
 This enables running multiple agent sessions on different tasks simultaneously.
 
-The canonical shared root is `~/.manyfold-worktrees/manyfold-platform/<task-name>`. Use `./scripts/worktree-session.sh` as the shared helper.
+The canonical shared root is `~/.manyfold-worktrees/<checkout>/<task-name>`, where `<checkout>` is the directory name of the main checkout (the helper derives it, so two checkouts of this tree keep their worktrees apart). Use `./scripts/worktree-session.sh` as the shared helper.
 
 `ws start` creates the worktree, feature branch, and repo-specific environment symlinks when their source files exist. For feature work, start from the main repo with the `dev-workflow` skill first, then continue from the worktree it creates.
 
@@ -36,7 +36,7 @@ The canonical shared root is `~/.manyfold-worktrees/manyfold-platform/<task-name
 ./scripts/worktree-session.sh start auth-refactor
 
 # In the new directory, start your agent
-cd ~/.manyfold-worktrees/manyfold-platform/auth-refactor
+cd ~/.manyfold-worktrees/<checkout>/auth-refactor
 <start-your-agent>
 ```
 
@@ -44,7 +44,7 @@ Or using the alias:
 
 ```bash
 ws start auth-refactor
-cd ~/.manyfold-worktrees/manyfold-platform/auth-refactor
+cd ~/.manyfold-worktrees/<checkout>/auth-refactor
 <start-your-agent>
 ```
 
@@ -68,17 +68,17 @@ cd ~/.manyfold-worktrees/manyfold-platform/auth-refactor
 ```bash
 # Terminal 1 - Authentication refactor
 ws start auth-refactor
-cd ~/.manyfold-worktrees/manyfold-platform/auth-refactor
+cd ~/.manyfold-worktrees/<checkout>/auth-refactor
 claude
 
 # Terminal 2 - Add metrics feature
 ws start add-metrics
-cd ~/.manyfold-worktrees/manyfold-platform/add-metrics
+cd ~/.manyfold-worktrees/<checkout>/add-metrics
 claude
 
 # Terminal 3 - Bug fixes
 ws start fix-login-bug
-cd ~/.manyfold-worktrees/manyfold-platform/fix-login-bug
+cd ~/.manyfold-worktrees/<checkout>/fix-login-bug
 claude
 ```
 
@@ -94,7 +94,7 @@ Each session:
 
 ```bash
 # When task is complete
-cd ~/.manyfold-worktrees/manyfold-platform/auth-refactor
+cd ~/.manyfold-worktrees/<checkout>/auth-refactor
 
 # Ensure everything is committed
 git status
@@ -122,11 +122,11 @@ ws cleanup auth-refactor
 
 ```bash
 # Terminal 1: Session working on add-metrics
-cd ~/.manyfold-worktrees/manyfold-platform/add-metrics
+cd ~/.manyfold-worktrees/<checkout>/add-metrics
 <agent-still-running>
 
 # Terminal 2: Review auth-refactor changes
-cd ~/.manyfold-worktrees/manyfold-platform/auth-refactor
+cd ~/.manyfold-worktrees/<checkout>/auth-refactor
 git log
 git diff main
 ```
@@ -138,7 +138,7 @@ git diff main
 # CAN happen when merging both PRs to main
 
 # Solution: Merge first PR, then rebase second PR
-cd ~/.manyfold-worktrees/manyfold-platform/add-metrics
+cd ~/.manyfold-worktrees/<checkout>/add-metrics
 git fetch origin
 git rebase origin/main
 # Resolve conflicts if any
@@ -154,10 +154,10 @@ ws list
 #   ● main (primary worktree)
 #   ● auth-refactor
 #     Branch: feature/auth-refactor
-#     Path: ~/.manyfold-worktrees/manyfold-platform/auth-refactor
+#     Path: ~/.manyfold-worktrees/<checkout>/auth-refactor
 #   ● add-metrics
 #     Branch: feature/add-metrics
-#     Path: ~/.manyfold-worktrees/manyfold-platform/add-metrics
+#     Path: ~/.manyfold-worktrees/<checkout>/add-metrics
 ```
 
 ## Git Worktree Commands
@@ -195,7 +195,7 @@ ws cleanup-all
 ws cleanup --force auth-refactor
 
 # Manual cleanup if script fails
-git worktree remove --force ~/.manyfold-worktrees/manyfold-platform/auth-refactor
+git worktree remove --force ~/.manyfold-worktrees/<checkout>/auth-refactor
 git branch -D feature/auth-refactor
 
 # Prune stale worktree references
@@ -261,9 +261,9 @@ ws status
 | What | Where |
 |------|-------|
 | Main repository | `/path/to/manyfold-platform` (your clone) |
-| Worktree base | `~/.manyfold-worktrees/manyfold-platform/` |
+| Worktree base | `~/.manyfold-worktrees/<checkout>/` |
 | Session script | `./scripts/worktree-session.sh` |
-| Worktree format | `~/.manyfold-worktrees/manyfold-platform/<task-name>` |
+| Worktree format | `~/.manyfold-worktrees/<checkout>/<task-name>` |
 | Branch format | `feature/<task-name>` |
 
 ## Quick Reference Card
@@ -271,7 +271,7 @@ ws status
 ```bash
 # START
 ws start my-task
-cd ~/.manyfold-worktrees/manyfold-platform/my-task
+cd ~/.manyfold-worktrees/<checkout>/my-task
 claude
 
 # LIST
