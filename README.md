@@ -69,14 +69,15 @@ OpenTofu root and the bases. The split and its rules are
   <img src="docs/architecture/diagrams/platform-light.svg" alt="The platform: Git holds the desired state and Argo CD applies it to a four-layer stack (tenants, network, cluster, infrastructure on Hetzner Cloud). Operations agents answer alerts within a policy and ask the operator for anything else. Backups, break-glass access and a failover DNS zone sit outside the platform.">
 </picture>
 
-Git is the source of truth and Argo CD applies it; nothing reaches a cluster any other way. The
-stack under it has four layers, each with its content in this repository:
+Git is the source of truth and Argo CD applies it; a live change is a short break-glass action
+that Argo CD reverts, as the runbooks say. The stack under it has four layers; the table names
+what this repository holds for each:
 
 | Layer | What it is | Where |
 |---|---|---|
 | Tenants | A landing zone per company, owned by the operator: namespaces and quota, a default-deny network, an identity realm, admission policies and scoped secrets; workloads come from the tenant's own repository | [`platform/tenants/`](platform/tenants/_template/README.md), [`infrastructure/crossplane/`](infrastructure/crossplane/README.md) |
-| Network | Cilium with Hubble, Envoy Gateway at the edge, egress by policy | [`platform/components/`](platform/components/), [`platform/resources/`](platform/resources/) |
-| Cluster | Kubernetes on Talos Linux; Velero and object-storage backups; Prometheus, Loki, Tempo, Grafana and Alloy for observability; Keycloak and OpenBao for identity and secrets | [`platform/components/`](platform/components/), [`platform/observability/`](platform/observability/) |
+| Network | Cilium with Hubble, Envoy Gateway at the edge, egress by policy | The Envoy Gateway values ([`platform/components/envoy-gateway/`](platform/components/envoy-gateway/)) and the `EgressRule` API ([`infrastructure/crossplane/`](infrastructure/crossplane/README.md)); Cilium itself is installed with the cluster and configured by an instance |
+| Cluster | Kubernetes on Talos Linux; Prometheus, Alertmanager, Grafana, Loki, Tempo and Alloy for observability; OpenBao for secrets and Keycloak for identity; Velero and object-storage backups | The Helm values of the observability stack, OpenBao, cert-manager, Crossplane and the rest ([`platform/components/`](platform/components/)), the alert rules, dashboards and ServiceMonitors ([`platform/observability/`](platform/observability/)), the cloud controller, CSI driver, registry and operations Redis manifests ([`platform/resources/cloud/`](platform/resources/cloud/)); Keycloak and the Velero chart values are an instance's |
 | Infrastructure | Hetzner Cloud servers, network, firewall and load balancer, and Cloudflare R2 buckets, from one OpenTofu root with no default values | [`infrastructure/clusters/cloud/bootstrap/`](infrastructure/clusters/cloud/bootstrap/README.md) |
 
 The operations agents in the diagram live in a repository of their own; this one carries the
@@ -90,13 +91,13 @@ network and namespace views, is in [`docs/architecture/platform-overview.md`](do
   <img src="docs/architecture/diagrams/delivery-light.svg" alt="Delivery: a change on main runs the checks, CI builds and pushes a versioned image and commits its tag to Git, Argo CD applies Git to the cluster and reverts drift, and the cluster pulls the image from the registry.">
 </picture>
 
-Every change is a commit on `main`, through a pull request. CI builds, tests and scans it, pushes a
-versioned image and writes the new tag back to Git; Argo CD applies what Git says and reverts
-drift. In this repository the same flow proves a change without deploying it: the pull request
-runs the publication gate, a secret scan, a render of every Kustomize directory and a check of
-the links, and a merge changes what an instance can pin. An instance then moves its pin in a
-reviewed change of its own, after rendering every Application before and after and comparing
-the two.
+That is the platform's flow, and it runs in an instance repository: a commit on `main` through a
+pull request, CI building, testing and scanning it, pushing a versioned image and writing the
+new tag back to Git, Argo CD applying what Git says and reverting drift. This repository has
+no cluster and pushes no image. A pull request here runs the publication gate, a secret scan,
+a render of every Kustomize directory, the application builds and a check of the links, and a
+merge changes what an instance can pin. An instance then moves its pin in a reviewed change of
+its own, after rendering every Application before and after and comparing the two.
 
 ## Tenancy
 
