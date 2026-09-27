@@ -77,7 +77,7 @@ This project includes Claude Code enhancements:
 > "Give Claude a way to verify its work. If Claude has that feedback loop, it will 2-3x the quality of the final result."
 
 For Kubernetes work:
-- Run the render harness (`scripts/ci/render-apps.py`) and the application tests before a pull request; after the merge, check that ArgoCD reports the applications `Synced` and `Healthy` on the cloud cluster
+- Run the installation's render harness and the application tests before a pull request; after the merge, check that ArgoCD reports the applications `Synced` and `Healthy` on the cloud cluster
 - Use `kubectl get pods` to verify deployments
 - Run `gh run list` to check the CI runs that build the images
 

@@ -99,9 +99,8 @@ claude --version
 
 There is no local cluster. The local kind cluster was retired on 2026-09-27 (see
 [ADR-0054's amendment of 2026-09-27](../adr/0054-public-platform-and-private-instance-repositories.md#amendment-2026-09-27-no-demo-tree-throwaway-cloud-instances-instead)).
-Development and verification run against the cloud cluster: the render harness
-(`scripts/ci/render-apps.py`), the per-application tests, and pull requests that Argo CD deploys
-after review and merge.
+Development and verification run against the cloud cluster: the installation's render harness,
+the per-application tests, and pull requests that Argo CD deploys after review and merge.
 
 Get the kubeconfig for the cloud cluster from the OpenTofu output, as the
 [cloud bootstrap guide](../../infrastructure/clusters/cloud/bootstrap/README.md#1-get-kubeconfig)

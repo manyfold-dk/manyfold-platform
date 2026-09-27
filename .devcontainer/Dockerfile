@@ -88,7 +88,7 @@ RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" && \
 # Install Helm
 RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-# Install kustomize (the render harness, scripts/ci/render-apps.py, runs the standalone binary)
+# Install kustomize (an installation's render harness and the CI render run the standalone binary)
 ARG KUSTOMIZE_VERSION=5.8.1
 RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" && \
     curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_${ARCH}.tar.gz" -o /tmp/kustomize.tar.gz && \
