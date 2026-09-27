@@ -108,7 +108,8 @@ manyfold.dk subdomain	network.manyfold.dk	platform/tenants/_template/egressrule-
 cluster-internal host	.svc	platform/components/blackbox-exporter/values-cloud.yaml
 cluster-internal host	.svc	platform/components/kube-prometheus-stack/values-cloud.yaml
 cluster-internal host	.svc	platform/observability/synthetic/caddy-ingest.yaml
-exact version	2.11.4	platform/observability/synthetic/caddy-ingest.yaml
+# the Caddy tag carries a three-part upstream version that Renovate bumps (ADR-0055, .github/renovate.json)
+exact version	*	platform/observability/synthetic/caddy-ingest.yaml
 exact version	4.4.0	platform/argocd/components/ksops/repo-server-patch.yaml
 # Documents: the published ADRs and runbooks.
 # The runbooks directory is this repository's own layout. The ADRs and runbooks also name
