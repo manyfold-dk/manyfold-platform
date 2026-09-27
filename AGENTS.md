@@ -8,7 +8,7 @@ The generic half of a small Kubernetes hosting platform: the platform's componen
 manifests, the application sources, the OpenTofu root that bootstraps a cluster, and the
 developer tooling. It is a reference installation. A private instance repository reads it
 at a pinned commit and adds what belongs to one installation. The
-[README](README.md#contents) maps every directory.
+[README](README.md#what-is-here) maps every directory.
 
 **Not here, by design:** hostnames, addresses, secrets, image tags and the Argo CD
 Applications. They live in the instance repository. A change that needs one of them takes
