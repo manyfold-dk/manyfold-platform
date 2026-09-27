@@ -98,7 +98,7 @@ creation_rules:
 
 Then, from the repository root, apply the KSOPS patch and restart the repo-server:
 ```bash
-kubectl --kubeconfig <cloud-kubeconfig> apply -f platform/argocd/cloud/repo-server-patch.yaml
+kubectl --kubeconfig <cloud-kubeconfig> apply -f platform/argocd/components/ksops/repo-server-patch.yaml
 kubectl --kubeconfig <cloud-kubeconfig> rollout restart deployment/argocd-repo-server -n argocd
 ```
 
@@ -309,7 +309,7 @@ KSOPS is not properly installed in the ArgoCD repo-server.
 **Fix**: Reapply the repo-server patch from the repository root:
 
 ```bash
-kubectl apply -f platform/argocd/cloud/repo-server-patch.yaml
+kubectl apply -f platform/argocd/components/ksops/repo-server-patch.yaml
 kubectl rollout restart deployment/argocd-repo-server -n argocd
 ```
 
