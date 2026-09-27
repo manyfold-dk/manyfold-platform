@@ -4,14 +4,10 @@ kind: Kustomization
 # Generic Argo CD configuration. An installation layers its own values on top in an
 # overlay of its own (canonical URL, OIDC provider, RBAC policy); the cluster setup
 # scripts apply that overlay, not this directory.
+#
+# KSOPS in the repo server is the component ../components/ksops: it patches the upstream
+# repo-server Deployment, which this directory does not contain.
 resources:
   - argocd-cm.yaml
   - argocd-cmd-params-cm.yaml
   - httproute.yaml
-
-# Patch repo-server for KSOPS (SOPS decryption) support
-patches:
-  - path: repo-server-patch.yaml
-    target:
-      kind: Deployment
-      name: argocd-repo-server

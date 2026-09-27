@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Installs KSOPS in the Argo CD repo server, so that Kustomize can decrypt the
+# SOPS-encrypted Secrets that argocd-cm's kustomize.buildOptions admit.
+#
+# The patch targets the upstream Deployment argocd-repo-server. Add this component to the
+# kustomization that installs Argo CD, the one that lists the upstream install manifest
+# (manifests/install.yaml of the Argo CD release) as a resource. In a kustomization without
+# that Deployment the patch matches nothing and Kustomize drops it without an error; for
+# that reason it is not part of ../../base.
+#
+# The age private key comes from the Secret sops-age in the argocd namespace. The volume is
+# optional, so the repo server starts without the key and cannot decrypt until it exists.
+patches:
+  - path: repo-server-patch.yaml
+    target:
+      kind: Deployment
+      name: argocd-repo-server

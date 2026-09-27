@@ -331,7 +331,7 @@ This installs ArgoCD and configures it for kustomize plugins (needed for KSOPS).
 Configure the ArgoCD repo-server to use KSOPS for decrypting secrets:
 
 ```bash
-kubectl --kubeconfig <cloud-kubeconfig> apply -f ../../../../platform/argocd/base/repo-server-patch.yaml
+kubectl --kubeconfig <cloud-kubeconfig> apply -f ../../../../platform/argocd/components/ksops/repo-server-patch.yaml
 kubectl --kubeconfig <cloud-kubeconfig> rollout restart deployment/argocd-repo-server -n argocd
 kubectl --kubeconfig <cloud-kubeconfig> rollout status deployment/argocd-repo-server -n argocd --timeout=120s
 ```
