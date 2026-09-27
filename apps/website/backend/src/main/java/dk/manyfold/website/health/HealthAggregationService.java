@@ -92,6 +92,15 @@ public class HealthAggregationService {
 	@ConfigProperty(name = "manyfold.health.pod-apps")
 	Optional<List<String>> podApps;
 
+	/**
+	 * How long an Argo CD Application may stay OutOfSync before delivery reads
+	 * degraded. Every merge leaves Applications OutOfSync until Argo CD has applied
+	 * it; the grace keeps a normal sync window from flapping the public delivery
+	 * signal, while an Application that stays out of sync still shows.
+	 */
+	@ConfigProperty(name = "manyfold.health.argocd-out-of-sync-minutes", defaultValue = "15")
+	long argocdOutOfSyncMinutes;
+
 	@Inject
 	ObjectMapper objectMapper;
 
@@ -258,21 +267,40 @@ public class HealthAggregationService {
 				String.format("Keycloak %s, OpenBao %s", keycloak.status(), openbao.status()));
 	}
 
-	private ComponentHealth checkArgoCDHealth() {
+	/**
+	 * Argo CD, from its own metrics.
+	 *
+	 * <p>
+	 * Degraded when an Application is Degraded, or has been OutOfSync without a
+	 * break for longer than the grace. Unknown when Prometheus did not answer: zero
+	 * counts from a query that never ran are not zero problems.
+	 */
+	ComponentHealth checkArgoCDHealth() {
 		try {
 			int synced = prometheusClient.getArgoCDSyncedApps();
 			int degraded = prometheusClient.getArgoCDDegradedApps();
+			long grace = argocdOutOfSyncMinutes;
+			int stuck = prometheusClient.getArgoCDAppsOutOfSyncFor(grace);
 
+			List<String> problems = new ArrayList<>();
 			if (degraded > 0) {
-				return new ComponentHealth(
-						"ArgoCD",
-						LayeredHealthResponse.STATUS_DEGRADED,
-						String.format("%d apps synced, %d degraded", synced, degraded));
+				problems.add(String.format("%d degraded", degraded));
+			}
+			if (stuck > 0) {
+				problems.add(String.format("%d out of sync for over %d min", stuck, grace));
+			}
+
+			String details = String.format("%d apps synced", synced);
+			if (problems.isEmpty()) {
+				return new ComponentHealth("ArgoCD", LayeredHealthResponse.STATUS_HEALTHY, details);
 			}
 			return new ComponentHealth(
 					"ArgoCD",
-					LayeredHealthResponse.STATUS_HEALTHY,
-					String.format("%d apps synced", synced));
+					LayeredHealthResponse.STATUS_DEGRADED,
+					details + ", " + String.join(", ", problems));
+		} catch (PrometheusQueryException e) {
+			LOG.warnf("ArgoCD metrics unavailable: %s", e.getMessage());
+			return new ComponentHealth("ArgoCD", LayeredHealthResponse.STATUS_UNKNOWN, "no metrics");
 		} catch (Exception e) {
 			LOG.warnf(e, "ArgoCD health check failed");
 			return new ComponentHealth("ArgoCD", LayeredHealthResponse.STATUS_UNHEALTHY, CHECK_FAILED);
@@ -325,34 +353,16 @@ public class HealthAggregationService {
 		return new ComponentHealth(name, status, String.format("%d/%d pods running", running, total));
 	}
 
-	private PipelinesHealth collectPipelinesHealth() {
-		try {
-			double successRate = prometheusClient.getTektonSuccessRate();
-			int totalRuns = prometheusClient.getTektonTotalRuns();
-			int successfulRuns = prometheusClient.getTektonSuccessfulRuns();
-			int failedRuns = prometheusClient.getTektonFailedRuns();
-
-			String status;
-			String lastRunStatus;
-			if (successRate < 0 || totalRuns == 0) {
-				status = LayeredHealthResponse.STATUS_HEALTHY;
-				successRate = 0.0;
-				lastRunStatus = "none";
-			} else {
-				status = successRate >= 90
-						? LayeredHealthResponse.STATUS_HEALTHY
-						: successRate >= 70
-								? LayeredHealthResponse.STATUS_DEGRADED
-								: LayeredHealthResponse.STATUS_UNHEALTHY;
-				lastRunStatus = failedRuns > 0 ? "failed" : "success";
-			}
-
-			long roundedRate = Math.round(successRate);
-			return new PipelinesHealth(
-					status, totalRuns, successfulRuns, failedRuns, roundedRate, lastRunStatus, "");
-		} catch (Exception e) {
-			return new PipelinesHealth(LayeredHealthResponse.STATUS_UNHEALTHY, 0, 0, 0, 0, "unknown", "");
-		}
+	/**
+	 * Pipeline runs over the last day. No engine reports pipeline runs to
+	 * Prometheus since the Tekton controller was retired (2026-09-27), and GitHub
+	 * Actions runs are not scraped, so the block is unmeasured and reads unknown:
+	 * every roll-up ignores an unknown half while the other is measured (delivery
+	 * follows Argo CD alone) and stays unknown when neither is. A source for GitHub
+	 * Actions runs would replace this.
+	 */
+	PipelinesHealth collectPipelinesHealth() {
+		return new PipelinesHealth(LayeredHealthResponse.STATUS_UNKNOWN, 0, 0, 0, 0, "none", "");
 	}
 
 	private ApplicationsHealth collectApplicationsHealth() {

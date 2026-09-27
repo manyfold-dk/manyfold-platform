@@ -21,6 +21,8 @@ const complete = {
   SLACK_SIGNING_SECRET: 'signing',
   BACKEND_URL: 'http://backend.example',
   REDIS_URL: 'redis://redis.example:6379',
+  OPS_FLEET_WEBHOOK_URL: undefined,
+  OPS_FLEET_WEBHOOK_TOKEN: undefined,
 };
 
 describe('integer settings', () => {
@@ -57,6 +59,34 @@ describe('missingSettings', () => {
   it('does not need Redis when the stream consumers are off', async () => {
     const m = await loadConfig({ ...complete, REDIS_URL: undefined, CONSUMERS_ENABLED: 'false' });
     expect(m.missingSettings()).toEqual([]);
+  });
+
+  it('takes the ops webhook URL and token together', async () => {
+    const m = await loadConfig({
+      ...complete,
+      OPS_FLEET_WEBHOOK_URL: 'http://ops.example',
+      OPS_FLEET_WEBHOOK_TOKEN: 'token',
+    });
+    expect(m.missingSettings()).toEqual([]);
+  });
+
+  it('refuses the ops webhook URL without its token, instead of disabling the forwarder', async () => {
+    const m = await loadConfig({ ...complete, OPS_FLEET_WEBHOOK_URL: 'http://ops.example' });
+    expect(m.missingSettings()).toEqual(['OPS_FLEET_WEBHOOK_TOKEN']);
+  });
+
+  it('refuses the ops webhook token without its URL', async () => {
+    const m = await loadConfig({ ...complete, OPS_FLEET_WEBHOOK_TOKEN: 'token' });
+    expect(m.missingSettings()).toEqual(['OPS_FLEET_WEBHOOK_URL']);
+  });
+
+  it('treats an empty ops webhook value as unset', async () => {
+    const m = await loadConfig({
+      ...complete,
+      OPS_FLEET_WEBHOOK_URL: 'http://ops.example',
+      OPS_FLEET_WEBHOOK_TOKEN: '',
+    });
+    expect(m.missingSettings()).toEqual(['OPS_FLEET_WEBHOOK_TOKEN']);
   });
 });
 

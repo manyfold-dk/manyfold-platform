@@ -61,7 +61,10 @@ const systemNodes = computed<TopologyNode[]>(() => {
       id: 'pipelines',
       name: 'Pipelines',
       status: health.value.pipelines.status,
-      details: `${health.value.pipelines.lastRunStatus} · ${health.value.pipelines.totalRuns24h} runs`,
+      details:
+        health.value.pipelines.status === 'unknown'
+          ? 'no pipeline source'
+          : `${health.value.pipelines.lastRunStatus} · ${health.value.pipelines.totalRuns24h} runs`,
       x: 555,
       y: 145,
       size: 95
@@ -131,21 +134,26 @@ const topologyEdges = computed<TopologyEdge[]>(() => {
 const graphWidth = 860
 const graphHeight = 320
 
+// Unknown means nothing measured the signal this pass: a gap in the
+// monitoring, not a fault, so it is not drawn red.
 function getNodeStatusClass(status: string) {
   if (status === 'healthy') return 'bg-emerald-100 text-emerald-800'
   if (status === 'degraded') return 'bg-amber-100 text-amber-800'
+  if (status === 'unknown') return 'bg-slate-100 text-slate-600'
   return 'bg-red-100 text-red-800'
 }
 
 function getStatusBadgeClass(status: string) {
   if (status === 'healthy') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
   if (status === 'degraded') return 'bg-amber-100 text-amber-700 border border-amber-200'
+  if (status === 'unknown') return 'bg-slate-100 text-slate-600 border border-slate-200'
   return 'bg-red-100 text-red-700 border border-red-200'
 }
 
 function statusClass(status: string) {
   if (status === 'healthy') return 'bg-emerald-100 text-emerald-800'
   if (status === 'degraded') return 'bg-amber-100 text-amber-800'
+  if (status === 'unknown') return 'bg-slate-100 text-slate-600'
   return 'bg-red-100 text-red-800'
 }
 

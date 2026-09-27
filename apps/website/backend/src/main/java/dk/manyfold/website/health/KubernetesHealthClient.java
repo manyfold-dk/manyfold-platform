@@ -45,10 +45,11 @@ public class KubernetesHealthClient {
 	}
 
 	/**
-	 * Namespaces with ephemeral pods excluded from cluster health (e.g. pipeline
-	 * builds).
+	 * Namespaces whose pods do not count towards cluster health. Empty since the
+	 * Tekton build namespace was retired (2026-09-27); a namespace with
+	 * short-lived, failing-by-design pods would go here.
 	 */
-	private static final List<String> EXCLUDED_NAMESPACES = List.of("tekton-builds");
+	private static final List<String> EXCLUDED_NAMESPACES = List.of();
 
 	/** Retrieves the overall health of the Kubernetes cluster. */
 	public ClusterHealth getClusterHealth() {

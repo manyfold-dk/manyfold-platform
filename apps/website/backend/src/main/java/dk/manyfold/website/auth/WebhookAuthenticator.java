@@ -9,8 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
- * Checks the bearer token on machine-to-machine webhooks (Alertmanager,
- * Tekton).
+ * Checks the bearer token on machine-to-machine webhooks (Alertmanager and CI).
  *
  * <p>
  * The webhooks drive auto-remediation and the Slack event stream, and the

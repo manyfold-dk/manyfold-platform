@@ -263,6 +263,62 @@ class IntegrationFileUploadResourceTest {
         response.entity());
   }
 
+  /**
+   * The vendor accepted the file, but the ledger could not record it: the cause is a database
+   * error, not an unknown vendor outcome, and the caller must still be told not to retry.
+   */
+  @Test
+  void anUploadTheLedgerCouldNotRecordTellsTheCallerNotToRetry() throws Exception {
+    CapturingExecutor executor = new CapturingExecutor();
+    executor.executionFailure =
+        new UnrecordedWriteException(
+            "vendor write succeeded but recording it failed",
+            500,
+            new IllegalStateException("database unavailable"));
+
+    Reply response =
+        Reply.of(
+            resource(executor, new CapturingDineroWriter())
+                .upload(
+                    "dinero",
+                    "receipt-2026-07",
+                    upload(
+                        "receipt.pdf",
+                        "application/pdf",
+                        "%PDF".getBytes(StandardCharsets.US_ASCII))));
+
+    assertEquals(500, response.status());
+    assertEquals(
+        Map.of(
+            "outcome",
+            "unknown",
+            "message",
+            "The upload may have reached the vendor. Do not retry; check the vendor."),
+        response.entity());
+  }
+
+  /** A plain guardrail with a non-vendor cause keeps the status-only reply. */
+  @Test
+  void aPlainGuardrailWithACauseStaysStatusOnly() throws Exception {
+    CapturingExecutor executor = new CapturingExecutor();
+    executor.executionFailure =
+        new GuardrailException("in progress", 409, new IllegalStateException("race"));
+
+    Reply response =
+        Reply.of(
+            resource(executor, new CapturingDineroWriter())
+                .upload(
+                    "dinero",
+                    "receipt-2026-07",
+                    upload(
+                        "receipt.pdf",
+                        "application/pdf",
+                        "%PDF".getBytes(StandardCharsets.US_ASCII))));
+
+    assertEquals(409, response.status());
+    assertFalse(response.hasEntity());
+  }
+
   private IntegrationFileUploadResource resource(
       CapturingExecutor executor, CapturingDineroWriter writer) {
     return new IntegrationFileUploadResource(executor, Map.of("dinero", writer));
@@ -291,7 +347,7 @@ class IntegrationFileUploadResourceTest {
     }
 
     @Override
-    public void requireWriter() {
+    public void requireWriter(String vendor, String operation) {
       writerAuthorized = true;
       if (authorizationFailure != null) {
         throw authorizationFailure;

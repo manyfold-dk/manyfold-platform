@@ -347,6 +347,89 @@ describe('ops decisions: the first click wins', () => {
     }
   });
 
+  /**
+   * A store whose approval writes hang while `down` is set, as during a Redis outage: the claim
+   * times out and its cleanup never runs. `unsent` collects the values those writes carried.
+   */
+  function hangingStore() {
+    const redis = fakeRedis();
+    const realSet = redis.set.bind(redis);
+    const unsent = new Map<string, string>();
+    const state = { down: true };
+    redis.set = ((k: string, v: string, ...rest: unknown[]) => {
+      if (state.down && v.startsWith('approved:')) {
+        unsent.set(k, v);
+        return new Promise(() => {});
+      }
+      return realSet(k, v, ...rest);
+    }) as typeof redis.set;
+    // The unsent claims land once Redis is back, but nothing is left to withdraw them.
+    const recover = () => {
+      state.down = false;
+      for (const [k, v] of unsent) redis.kv.set(k, v);
+    };
+    return { redis, recover };
+  }
+
+  it('forgets a withdrawn claim after the approval window, and still sends nothing', async () => {
+    vi.useFakeTimers();
+    const { redis, recover } = hangingStore();
+    setDecisionStore(redis as never);
+    try {
+      const claims = [
+        claimOpsDecision('act-w1', 'approved'),
+        claimOpsDecision('act-w2', 'approved'),
+      ];
+      await vi.advanceTimersByTimeAsync(2_500);
+      for (const c of claims) expect(await c).toEqual({ standing: 'unavailable', isNew: false });
+      recover();
+
+      // Inside the window a retry takes its own unsent claim over.
+      expect(await claimOpsDecision('act-w1', 'approved')).toMatchObject({
+        standing: 'approved',
+        isNew: true,
+      });
+
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+
+      // Past it the record is gone: the unsent claim stands and the retry sends nothing.
+      expect(await claimOpsDecision('act-w2', 'approved')).toEqual({
+        standing: 'approved',
+        isNew: false,
+      });
+    } finally {
+      vi.useRealTimers();
+      setDecisionStore(fakeRedis() as never);
+    }
+  });
+
+  it('keeps at most 1,000 withdrawn claims, forgetting the oldest fail-closed', async () => {
+    vi.useFakeTimers();
+    const { redis, recover } = hangingStore();
+    setDecisionStore(redis as never);
+    try {
+      const ids = Array.from({ length: 1_001 }, (_, i) => `act-b${i}`);
+      const claims = ids.map((id) => claimOpsDecision(id, 'approved'));
+      await vi.advanceTimersByTimeAsync(2_500);
+      await Promise.all(claims);
+      recover();
+
+      // The oldest record was dropped: its unsent claim stands, nothing is sent.
+      expect(await claimOpsDecision(ids[0]!, 'approved')).toEqual({
+        standing: 'approved',
+        isNew: false,
+      });
+      // The newest is still known, so its retry may take the key over.
+      expect(await claimOpsDecision(ids[1_000]!, 'approved')).toMatchObject({
+        standing: 'approved',
+        isNew: true,
+      });
+    } finally {
+      vi.useRealTimers();
+      setDecisionStore(fakeRedis() as never);
+    }
+  });
+
   it('a Reject after a timed-out approval wins even if that approval lands late', async () => {
     vi.useFakeTimers();
     const redis = fakeRedis();

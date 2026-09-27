@@ -1,8 +1,8 @@
 # Slack Bot
 
-The platform's operator channel in Slack. It posts alerts, deployment results and a twice-daily
-health digest, answers slash commands about platform health, and runs an approval flow for
-restarts.
+The platform's operator channel in Slack. It posts the alerts it can act on, deployment results
+and a twice-daily health digest, answers slash commands about platform health, and runs an
+approval flow for restarts.
 
 A TypeScript service on [Bolt](https://tools.slack.dev/bolt-js/) in Socket Mode: the bot opens an
 outbound WebSocket to Slack, so it needs no ingress and exposes nothing to the internet. Design
@@ -28,6 +28,10 @@ Slack  <── Socket Mode (outbound WebSocket) ──  slack-bot
 - **Readiness means consuming, not connected.** `/readyz` fails when no stream read has
   succeeded for `CONSUMER_STALL_THRESHOLD_MS`, so a consumer stuck behind a live TCP connection
   surfaces instead of looking healthy.
+- **`#alerts` belongs to Alertmanager.** Alertmanager's own Slack receiver posts every warning and
+  critical alert. The bot adds a post only for an alert that names a pod, because that post
+  carries the Restart Pod button; it threads the resolution under it. Every alert, posted or
+  not, still goes to the ops host when one is configured.
 - **Queries go to the backend.** `/health`, `/alerts` and the digest read the backend's health
   API; the bot holds no platform state of its own.
 - **Alerts can also go to an ops host.** With `OPS_FLEET_WEBHOOK_URL` and its token set, each
@@ -62,29 +66,29 @@ Settings without a sensible default are required: the bot refuses to start and n
 missing one. Integer settings must be clean integers: `30s` stops the start instead of turning a timeout off.
 An unset or empty variable takes the default.
 
-| Variable                                                 | Default                        | Purpose                                   |
-| -------------------------------------------------------- | ------------------------------ | ----------------------------------------- |
-| `SLACK_BOT_TOKEN`                                        | required                       | Bot token (`xoxb-`)                       |
-| `SLACK_APP_TOKEN`                                        | required                       | App-level token for Socket Mode (`xapp-`) |
-| `SLACK_SIGNING_SECRET`                                   | required                       | Request signature verification            |
-| `BACKEND_URL`                                            | required                       | Website backend base URL                  |
-| `REDIS_URL`                                              | required when consumers are on | Redis holding the event streams           |
-| `CONSUMERS_ENABLED`                                      | `true`                         | Read the event streams                    |
-| `CONSUMER_STALL_THRESHOLD_MS`                            | `120000`                       | Stream-read age at which `/readyz` fails  |
-| `CHANNEL_ALERTS`                                         | `#alerts`                      | Alert channel                             |
-| `CHANNEL_DEPLOYMENTS`                                    | `#deployments`                 | Deployment channel                        |
-| `CHANNEL_DIGEST`                                         | `#platform-status`             | Digest channel                            |
-| `DIGEST_ENABLED`                                         | `true`                         | Post the scheduled digest                 |
-| `DIGEST_CRON_MORNING` / `DIGEST_CRON_EVENING`            | `0 8 * * *` / `0 17 * * *`     | Digest schedule                           |
-| `DIGEST_TIMEZONE`                                        | `Europe/Copenhagen`            | Time zone of the schedule                 |
-| `GRAFANA_BASE_URL`, `TEKTON_DASHBOARD_URL`, `ARGOCD_URL` | empty                          | Link targets in messages                  |
-| `REMEDIATION_APPROVER_USER_IDS`                          | ops-fleet approvers            | Comma-separated Slack user IDs            |
-| `APPROVAL_TIMEOUT_SECONDS`                               | `300`                          | Approval expiry                           |
-| `OPS_FLEET_WEBHOOK_URL`, `OPS_FLEET_WEBHOOK_TOKEN`       | empty (off)                    | Ops-host alert forwarding                 |
-| `OPS_FLEET_APPROVER_USER_IDS`                            | empty                          | Who may approve ops-host actions          |
-| `OPS_FLEET_TIMEOUT_MS`                                   | `5000`                         | Ops webhook timeout                       |
-| `PORT`                                                   | `3000`                         | Health endpoint port                      |
-| `LOG_LEVEL`                                              | `info`                         | Pino log level                            |
+| Variable                                           | Default                        | Purpose                                   |
+| -------------------------------------------------- | ------------------------------ | ----------------------------------------- |
+| `SLACK_BOT_TOKEN`                                  | required                       | Bot token (`xoxb-`)                       |
+| `SLACK_APP_TOKEN`                                  | required                       | App-level token for Socket Mode (`xapp-`) |
+| `SLACK_SIGNING_SECRET`                             | required                       | Request signature verification            |
+| `BACKEND_URL`                                      | required                       | Website backend base URL                  |
+| `REDIS_URL`                                        | required when consumers are on | Redis holding the event streams           |
+| `CONSUMERS_ENABLED`                                | `true`                         | Read the event streams                    |
+| `CONSUMER_STALL_THRESHOLD_MS`                      | `120000`                       | Stream-read age at which `/readyz` fails  |
+| `CHANNEL_ALERTS`                                   | `#alerts`                      | Alert channel                             |
+| `CHANNEL_DEPLOYMENTS`                              | `#deployments`                 | Deployment channel                        |
+| `CHANNEL_DIGEST`                                   | `#platform-status`             | Digest channel                            |
+| `DIGEST_ENABLED`                                   | `true`                         | Post the scheduled digest                 |
+| `DIGEST_CRON_MORNING` / `DIGEST_CRON_EVENING`      | `0 8 * * *` / `0 17 * * *`     | Digest schedule                           |
+| `DIGEST_TIMEZONE`                                  | `Europe/Copenhagen`            | Time zone of the schedule                 |
+| `GRAFANA_BASE_URL`, `ARGOCD_URL`                   | empty                          | Link targets in messages                  |
+| `REMEDIATION_APPROVER_USER_IDS`                    | ops-fleet approvers            | Comma-separated Slack user IDs            |
+| `APPROVAL_TIMEOUT_SECONDS`                         | `300`                          | Approval expiry                           |
+| `OPS_FLEET_WEBHOOK_URL`, `OPS_FLEET_WEBHOOK_TOKEN` | empty (off); both or neither   | Ops-host alert forwarding                 |
+| `OPS_FLEET_APPROVER_USER_IDS`                      | empty                          | Who may approve ops-host actions          |
+| `OPS_FLEET_TIMEOUT_MS`                             | `5000`                         | Ops webhook timeout                       |
+| `PORT`                                             | `3000`                         | Health endpoint port                      |
+| `LOG_LEVEL`                                        | `info`                         | Pino log level                            |
 
 ## Development
 

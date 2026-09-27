@@ -51,16 +51,6 @@ deschedulerPolicy:
             podProtections:
               defaultDisabled:
                 - "PodsWithLocalStorage"
-            # Never evict Tekton build pods. They run multi-minute CI
-            # steps; evicting one mid-build destroys the work and fails
-            # the pipeline (it is not reschedulable progress). The
-            # DefaultEvictor gates every strategy, so this exempts Tekton
-            # pods from TopologySpread/LowNodeUtilization/RemoveDuplicates
-            # eviction alike. See ADR-0031.
-            labelSelector:
-              matchExpressions:
-                - key: tekton.dev/taskRun
-                  operator: DoesNotExist
         - name: RemoveDuplicates
         - name: RemovePodsHavingTooManyRestarts
           args:

@@ -25,7 +25,7 @@ var MARKER = "@@mf"
 var SERVICES = [
   { key: "edge", name: "Edge", fallback: "Probe from outside the platform" },
   { key: "identity", name: "Identity and secrets", fallback: "Keycloak · OpenBao" },
-  { key: "delivery", name: "Delivery", fallback: "Argo CD · Tekton · GitHub Actions" },
+  { key: "delivery", name: "Delivery", fallback: "Argo CD · GitHub Actions" },
   { key: "observability", name: "Observability", fallback: "Prometheus · Loki · Tempo · Grafana" }
 ]
 

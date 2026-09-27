@@ -59,11 +59,13 @@ The script reads the secret from the cluster and creates the webhook via the Git
 
 | Webhook | Endpoint | Purpose | Events |
 |---------|----------|---------|--------|
-| ArgoCD | `https://<argocd-host>/api/webhook` | Triggers ArgoCD sync | push |
+| ArgoCD | `https://<argocd-host>/argocd/api/webhook` | Triggers ArgoCD sync | push |
 
 ## ArgoCD Webhook
 
 ArgoCD webhook enables immediate sync on push (instead of waiting for poll interval).
+
+The public main gateway routes only the path `/argocd/api/webhook` to ArgoCD. The route is `platform/argocd/overlays/cloud/httproute-webhook.yaml`. The ArgoCD UI and API are on the private admin gateway.
 
 ### Kubernetes Secret
 
@@ -85,7 +87,7 @@ gh api repos/<org>/<repo>/hooks \
   "active": true,
   "events": ["push"],
   "config": {
-    "url": "https://<argocd-host>/api/webhook",
+    "url": "https://<argocd-host>/argocd/api/webhook",
     "content_type": "json",
     "secret": "${ARGOCD_SECRET}",
     "insecure_ssl": "0"
@@ -97,7 +99,7 @@ EOF
 Or manually via GitHub UI:
 1. Go to: `https://github.com/<org>/<repo>/settings/hooks`
 2. Click "Add webhook"
-3. Payload URL: `https://<argocd-host>/api/webhook`
+3. Payload URL: `https://<argocd-host>/argocd/api/webhook`
 4. Content type: `application/json`
 5. Secret: (get from Kubernetes secret above)
 6. SSL verification: Enable

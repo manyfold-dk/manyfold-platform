@@ -62,7 +62,7 @@ const services = computed(() => [
   },
   {
     name: 'Delivery',
-    detail: 'Argo CD GitOps · Tekton · GitHub Actions',
+    detail: 'Argo CD GitOps · GitHub Actions',
     value: healthSummary.value?.delivery ?? null
   },
   {

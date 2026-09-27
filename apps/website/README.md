@@ -24,7 +24,7 @@ serves a Vue 3 single-page application and the API behind it.
 browser ──> oauth2-proxy ──> website backend (Quarkus) ──> Prometheus, Kubernetes API
             (login for                │                      (health, alerts, restarts)
              non-public paths)        └──> Redis stream ──> Slack bot
-Alertmanager, Tekton ──(bearer token)──> /api/v1/alerts/webhook, /api/v1/pipeline/webhook
+Alertmanager, CI ──(bearer token)──> /api/v1/alerts/webhook, /api/v1/pipeline/webhook
 ```
 
 - **One image.** The Vite build is copied into the backend's static resources, and a routing

@@ -148,7 +148,7 @@ async function startConsumers(): Promise<void> {
       if (opsFleet) {
         logger.info({ webhookUrl: config.opsFleet.webhookUrl }, 'ops-fleet forwarder enabled');
       } else {
-        logger.info('ops-fleet forwarder disabled (missing config)');
+        logger.info('ops-fleet forwarder disabled (not configured)');
       }
 
       startAlertConsumer(app, redis, opsFleet);

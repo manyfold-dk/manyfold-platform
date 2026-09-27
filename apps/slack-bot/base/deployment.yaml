@@ -52,8 +52,6 @@ spec:
               value: http://website-backend.website.svc:8080
             - name: GRAFANA_BASE_URL
               value: http://localhost/grafana
-            - name: TEKTON_DASHBOARD_URL
-              value: http://localhost/tekton
             - name: ARGOCD_URL
               value: https://localhost:30443
             - name: CONSUMERS_ENABLED

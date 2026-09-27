@@ -4,8 +4,78 @@ import type { AlertEvent, StoredAlert } from '../../src/types/index.js';
 // Set env vars before importing modules that read config
 process.env.GRAFANA_BASE_URL = 'http://grafana.test';
 
-const { formatAlertFiring, formatAlertResolved, formatAlertList, MAX_LISTED_ALERTS } =
-  await import('../../src/formatting/alert-blocks.js');
+const {
+  alertFiringText,
+  alertResolvedText,
+  formatAlertFiring,
+  formatAlertResolved,
+  formatAlertList,
+  MAX_LISTED_ALERTS,
+} = await import('../../src/formatting/alert-blocks.js');
+
+/** A cluster-scoped alert: the stream carries its namespace as an empty value. */
+const clusterScoped: AlertEvent = {
+  fingerprint: 'drift',
+  status: 'firing',
+  alertName: 'TenantDedupDriftStale',
+  severity: 'warning',
+  namespace: '',
+  summary: 'Drift report is stale',
+  timestamp: new Date().toISOString(),
+};
+
+const sectionTexts = (blocks: unknown[]) =>
+  (blocks as { type: string; text?: { text: string } }[])
+    .filter((b) => b.type === 'section')
+    .map((b) => b.text!.text);
+
+describe('alerts without a namespace', () => {
+  it('omits the namespace line from a firing alert', () => {
+    const [details] = sectionTexts(formatAlertFiring(clusterScoped));
+    expect(details).not.toContain('Namespace');
+    expect(details).toContain('Drift report is stale');
+  });
+
+  it('omits the namespace from the text fallbacks', () => {
+    expect(alertFiringText(clusterScoped)).toBe('WARNING: TenantDedupDriftStale');
+    expect(alertResolvedText(clusterScoped)).toBe('RESOLVED: TenantDedupDriftStale');
+  });
+
+  it('still names a namespace that is present', () => {
+    const alert = { ...clusterScoped, namespace: 'tenant-a' };
+    expect(alertFiringText(alert)).toBe('WARNING: TenantDedupDriftStale in tenant-a');
+    expect(alertResolvedText(alert)).toBe('RESOLVED: TenantDedupDriftStale in tenant-a');
+    expect(sectionTexts(formatAlertFiring(alert))[0]).toContain('*Namespace:* tenant-a');
+  });
+
+  it('omits the namespace line from a resolution', () => {
+    const [details] = sectionTexts(formatAlertResolved(clusterScoped, '5m'));
+    expect(details).toBe('*Duration:* 5m');
+  });
+
+  it('sends no empty section when a resolution has no details, which Slack would refuse', () => {
+    const blocks = formatAlertResolved(clusterScoped);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({ type: 'header' });
+  });
+
+  it('leaves the namespace out of the alert list instead of an empty fragment', () => {
+    const [line] = sectionTexts(
+      formatAlertList([
+        {
+          fingerprint: 'drift',
+          alertName: 'TenantDedupDriftStale',
+          severity: 'warning',
+          namespace: '',
+          summary: 's',
+          status: 'firing',
+          startsAt: new Date().toISOString(),
+        },
+      ]),
+    );
+    expect(line).toMatch(/^:warning: \*TenantDedupDriftStale\* — 0m ago\n/);
+  });
+});
 
 describe('formatAlertFiring', () => {
   it('renders critical alert with red circle', () => {

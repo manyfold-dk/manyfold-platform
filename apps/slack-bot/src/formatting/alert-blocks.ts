@@ -17,12 +17,25 @@ const SEVERITY_EMOJI: Record<string, string> = {
   info: ':information_source:',
 };
 
+// A cluster-scoped alert carries no namespace label; the stream then holds an empty value. Every
+// namespace line and fragment below is left out for it rather than printed empty.
+const inNamespace = (alert: AlertEvent) => (alert.namespace ? ` in ${alert.namespace}` : '');
+
+/** The message's `text`: the notification and the fallback where blocks are not shown. */
+export function alertFiringText(alert: AlertEvent): string {
+  return `${alert.severity.toUpperCase()}: ${alert.alertName}${inNamespace(alert)}`;
+}
+
+export function alertResolvedText(alert: AlertEvent): string {
+  return `RESOLVED: ${alert.alertName}${inNamespace(alert)}`;
+}
+
 export function formatAlertFiring(alert: AlertEvent): KnownBlock[] {
   const emoji = SEVERITY_EMOJI[alert.severity] ?? ':white_circle:';
   const severityLabel = alert.severity.toUpperCase();
 
   const details = [
-    `*Namespace:* ${alert.namespace}`,
+    alert.namespace ? `*Namespace:* ${alert.namespace}` : null,
     alert.pod ? `*Pod:* ${alert.pod}` : null,
     alert.deployment ? `*Deployment:* ${alert.deployment}` : null,
     `*Summary:* ${clip(alert.summary ?? '', 1_000)}`,
@@ -84,7 +97,7 @@ export function formatAlertFiring(alert: AlertEvent): KnownBlock[] {
 
 export function formatAlertResolved(alert: AlertEvent, duration?: string): KnownBlock[] {
   const details = [
-    `*Namespace:* ${alert.namespace}`,
+    alert.namespace ? `*Namespace:* ${alert.namespace}` : null,
     alert.pod ? `*Pod:* ${alert.pod}` : null,
     alert.deployment ? `*Deployment:* ${alert.deployment}` : null,
     duration ? `*Duration:* ${duration}` : null,
@@ -92,7 +105,7 @@ export function formatAlertResolved(alert: AlertEvent, duration?: string): Known
     .filter(Boolean)
     .join('\n');
 
-  return [
+  const blocks: KnownBlock[] = [
     {
       type: 'header',
       text: {
@@ -100,12 +113,12 @@ export function formatAlertResolved(alert: AlertEvent, duration?: string): Known
         text: clip(`:white_check_mark: RESOLVED  ${alert.alertName}`, 150),
       },
     },
-    { type: 'divider' },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: details },
-    },
   ];
+  // Slack refuses a section with empty text, and a refused post is retried without end.
+  if (details) {
+    blocks.push({ type: 'divider' }, { type: 'section', text: { type: 'mrkdwn', text: details } });
+  }
+  return blocks;
 }
 
 /** At most this many alerts are listed in one message. */
@@ -137,12 +150,15 @@ export function formatAlertList(alerts: StoredAlert[]): KnownBlock[] {
   for (const alert of listed) {
     const emoji = SEVERITY_EMOJI[alert.severity] ?? ':white_circle:';
     const age = formatAge(alert.startsAt);
+    const heading = [`${emoji} *${clip(alert.alertName, 100)}*`, alert.namespace, age]
+      .filter(Boolean)
+      .join(' — ');
 
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${emoji} *${clip(alert.alertName, 100)}* — ${alert.namespace} — ${age}\n${clip(alert.summary ?? '', 300)}`,
+        text: `${heading}\n${clip(alert.summary ?? '', 300)}`,
       },
     });
   }

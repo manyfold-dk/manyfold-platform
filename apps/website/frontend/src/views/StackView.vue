@@ -9,7 +9,7 @@ import tenancyDiagram from '@/assets/diagrams/tenancy-light.svg'
 const services = [
   { name: 'Edge', detail: 'Cloudflare (EU) DNS with a failover zone' },
   { name: 'Identity and secrets', detail: 'Keycloak · OpenBao' },
-  { name: 'Delivery', detail: 'Argo CD GitOps · Tekton · GitHub Actions' },
+  { name: 'Delivery', detail: 'Argo CD GitOps · GitHub Actions' },
   { name: 'Observability', detail: 'Prometheus · Loki · Tempo · Grafana' }
 ]
 

@@ -395,6 +395,28 @@ test('the phone widget lists the layers in the same order as /stack', async ({ p
   ])
 })
 
+test('the phone widget reads an unmeasured layer as not measured, not an outage', async ({
+  page
+}) => {
+  // Prometheus did not answer: the backend reports the pipelines as unknown.
+  // That is a gap in the monitoring and must not read as an outage.
+  await page.route('**/api/v1/health', (route) =>
+    route.fulfill({
+      json: {
+        ...layeredHealth,
+        pipelines: { ...layeredHealth.pipelines, status: 'unknown', lastRunStatus: 'unknown' }
+      }
+    })
+  )
+  await page.goto('/status.html')
+
+  const pipelines = page.locator('#servicesGrid .service-row', { hasText: 'Pipelines' })
+  await expect(pipelines.locator('.service-status')).toHaveText('not measured')
+  await expect(pipelines.locator('.service-status')).not.toHaveClass(/outage/)
+  await expect(pipelines.getByText('Pipeline metrics unavailable')).toBeVisible()
+  await expect(page.locator('#servicesGrid .service-status.outage')).toHaveCount(0)
+})
+
 test('/status charts the history of both probes', async ({ page }) => {
   await page.goto('/status')
 

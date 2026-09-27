@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import dk.manyfold.accounting.integrations.GuardrailException;
 import dk.manyfold.accounting.integrations.VendorOutcomeUnknownException;
 import dk.manyfold.accounting.integrations.VendorWriteException;
 import jakarta.ws.rs.WebApplicationException;
@@ -617,6 +618,66 @@ class DineroWriterTest {
                     .createPurchaseVoucher(
                         json("{\"PurchaseType\":\"credit\"}"), new BigDecimal("15.24")));
     assertTrue(e.getMessage().contains(guid));
+  }
+
+  /**
+   * Dinero answered the pre-booking read 2xx, but without the total the guard needs. That is a
+   * local failure: no vendor error status exists to record, so it must not be a {@link
+   * VendorWriteException}, whose status the ledger stores as vendor_status.
+   */
+  @Test
+  void aPreBookingReadWithoutTheTotalIsALocalFailure() {
+    String guid = "invoice-guid-123";
+    wireMock.stubFor(
+        get(urlEqualTo("/v1/" + ORG + "/invoices/" + guid))
+            .willReturn(okJson("{\"TimeStamp\":\"timestamp-1\"}")));
+
+    GuardrailException e =
+        assertThrows(
+            GuardrailException.class,
+            () -> stubbedWriter().bookInvoice(guid, new BigDecimal("100.00")));
+
+    assertEquals(502, e.getResponse().getStatus());
+    assertTrue(e.getMessage().contains("TotalInclVat"));
+    wireMock.verify(0, postRequestedFor(urlEqualTo("/v1/" + ORG + "/invoices/" + guid + "/book")));
+  }
+
+  @Test
+  void anUnreadablePreBookingReadIsALocalFailure() {
+    String guid = "voucher-guid-123";
+    wireMock.stubFor(
+        get(urlEqualTo("/v1/" + ORG + "/vouchers/purchase/" + guid))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{not json")));
+
+    GuardrailException e =
+        assertThrows(
+            GuardrailException.class,
+            () -> stubbedWriter().bookPurchaseVoucher(guid, new BigDecimal("100.00")));
+
+    assertEquals(502, e.getResponse().getStatus());
+    assertTrue(e.getMessage().contains("invalid JSON"));
+    wireMock.verify(
+        0, postRequestedFor(urlEqualTo("/v1/" + ORG + "/vouchers/purchase/" + guid + "/book")));
+  }
+
+  /** A pre-booking read the vendor refused is a vendor failure, with the status Dinero sent. */
+  @Test
+  void aRefusedPreBookingReadKeepsTheVendorStatus() {
+    String guid = "voucher-guid-404";
+    wireMock.stubFor(
+        get(urlEqualTo("/v1/" + ORG + "/vouchers/purchase/" + guid))
+            .willReturn(com.github.tomakehurst.wiremock.client.WireMock.status(404)));
+
+    VendorWriteException e =
+        assertThrows(
+            VendorWriteException.class,
+            () -> stubbedWriter().bookPurchaseVoucher(guid, new BigDecimal("100.00")));
+
+    assertEquals(404, e.upstreamStatus());
   }
 
   @Test

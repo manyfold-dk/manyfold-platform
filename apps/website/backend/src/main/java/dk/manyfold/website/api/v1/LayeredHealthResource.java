@@ -80,11 +80,17 @@ public class LayeredHealthResource {
 	 * <p>
 	 * Argo CD reconciling a stale revision and a pipeline that cannot build are
 	 * both "nothing new reaches production", so the public page shows one signal
-	 * for the pair rather than making a visitor combine them.
+	 * for the pair rather than making a visitor combine them. Like every other
+	 * roll-up, it ignores an unknown half while the other is measured and stays
+	 * unknown when neither is: an unreachable Prometheus is not a healthy delivery.
 	 */
-	private static String deliveryStatus(LayeredHealthResponse health) {
+	static String deliveryStatus(LayeredHealthResponse health) {
 		String argocd = health.platform().argocd().status();
 		String pipelines = health.pipelines().status();
+		if (LayeredHealthResponse.STATUS_UNKNOWN.equals(argocd)
+				&& LayeredHealthResponse.STATUS_UNKNOWN.equals(pipelines)) {
+			return LayeredHealthResponse.STATUS_UNKNOWN;
+		}
 		if (LayeredHealthResponse.STATUS_UNHEALTHY.equals(argocd)
 				|| LayeredHealthResponse.STATUS_UNHEALTHY.equals(pipelines)) {
 			return LayeredHealthResponse.STATUS_UNHEALTHY;

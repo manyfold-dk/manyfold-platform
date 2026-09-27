@@ -61,8 +61,9 @@ public class IntegrationFileUploadResource {
       @HeaderParam("Idempotency-Key") String idempotencyKey,
       @RestForm("file") FileUpload file) {
     try {
-      // Authorize before reading the staged multipart file into application memory.
-      executor.requireWriter();
+      // Authorize before reading the staged multipart file into application memory. The gate
+      // records a refusal (401/403) in the write audit trail.
+      executor.requireWriter(vendor, OPERATION);
       IntegrationWriteKeys.validateKey(idempotencyKey);
       DineroWriter writer = writer(vendor);
       if (file == null) {
@@ -102,7 +103,7 @@ public class IntegrationFileUploadResource {
       return Response.ok(Map.of("FileGuid", fileGuid, "deduplicated", outcome.deduplicated()))
           .build();
     } catch (WebApplicationException exception) {
-      if (exception.getCause() instanceof VendorOutcomeUnknownException) {
+      if (mustNotRetry(exception)) {
         // A fixed message, no vendor detail: the key stays reserved (on the first attempt and on
         // every retry), and the caller must not upload the same file under a new key before
         // checking the vendor.
@@ -198,6 +199,15 @@ public class IntegrationFileUploadResource {
 
   private static WriteResult toResult(DineroWriter.Result result) {
     return new WriteResult(result.status(), result.id());
+  }
+
+  /**
+   * The file may exist at the vendor and the key stays reserved: the vendor outcome is unknown, or
+   * the vendor accepted the file but the ledger could not record it.
+   */
+  private static boolean mustNotRetry(WebApplicationException exception) {
+    return exception instanceof UnrecordedWriteException
+        || exception.getCause() instanceof VendorOutcomeUnknownException;
   }
 
   private static Response statusOnly(Response error) {
