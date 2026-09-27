@@ -126,7 +126,8 @@
 
   // Set environment variables
   "remoteEnv": {
-    "QUARKUS_HTTP_HOST": "0.0.0.0"
+    "QUARKUS_HTTP_HOST": "0.0.0.0",
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
   },
 
   // Use 'forwardPorts' to make a list of ports inside the container available locally

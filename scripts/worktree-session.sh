@@ -21,7 +21,14 @@ set -e
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-WORKTREE_BASE="${MANYFOLD_WORKTREE_BASE:-$HOME/.manyfold-worktrees/manyfold-platform}"
+# The worktree base follows the main checkout's directory name, so two checkouts of this tree
+# (the instance and the public reference installation) keep their worktrees apart. The name is
+# the host path the dev container is given (LOCAL_WORKSPACE_FOLDER; inside the container the
+# checkout is mounted as /workspace) or, on the host, the common git dir's parent, which is the
+# same from inside a worktree. MANYFOLD_WORKTREE_BASE overrides.
+MAIN_CHECKOUT="$(cd "$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
+MAIN_CHECKOUT_NAME="$(basename "${LOCAL_WORKSPACE_FOLDER:-$MAIN_CHECKOUT}")"
+WORKTREE_BASE="${MANYFOLD_WORKTREE_BASE:-$HOME/.manyfold-worktrees/$MAIN_CHECKOUT_NAME}"
 
 # Colors for output
 RED='\033[0;31m'

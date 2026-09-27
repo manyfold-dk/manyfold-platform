@@ -3,7 +3,8 @@
 # Set up symlinks to make git worktrees work inside the devcontainer
 #
 # Git worktrees use absolute paths. On macOS, paths like:
-#   /Users/<user>/Developer/Private/manyfold-platform
+#   /Users/<user>/Developer/Private/<checkout>   (LOCAL_WORKSPACE_FOLDER, set by
+#                                                  devcontainer.json and dev-shell.sh)
 #   /Users/<user>/.manyfold-worktrees
 # don't exist inside the container. This script creates symlinks so they resolve.
 #
@@ -39,6 +40,9 @@ detect_macos_user() {
 
 # Get macOS username
 MACOS_USER=$(detect_macos_user)
+if [ -z "$MACOS_USER" ] && [[ "${LOCAL_WORKSPACE_FOLDER:-}" == /Users/*/* ]]; then
+    MACOS_USER=$(echo "$LOCAL_WORKSPACE_FOLDER" | sed 's|^/Users/\([^/]*\)/.*|\1|')
+fi
 if [ -z "$MACOS_USER" ]; then
     echo "⚠️  Could not detect macOS username for worktree paths"
     echo "   Worktrees may not work correctly inside the container"
@@ -51,10 +55,15 @@ echo "ℹ️  Setting up worktree path symlinks for macOS user: $MACOS_USER"
 sudo mkdir -p "/Users/$MACOS_USER/Developer/Private"
 sudo mkdir -p "/Users/$MACOS_USER"
 
-# Create symlink for main repo path
-if [ ! -e "/Users/$MACOS_USER/Developer/Private/manyfold-platform" ]; then
-    sudo ln -sf /workspace "/Users/$MACOS_USER/Developer/Private/manyfold-platform"
-    echo "   ✓ Linked main repo path"
+# Create symlink for the checkout's host path (its name is not fixed: the instance and the
+# public reference installation are two checkouts of this tree). The container is opened from
+# the main checkout; a container opened from a worktree has no main checkout mounted, so the
+# worktree's .git file cannot resolve there, as before this change.
+HOST_REPO="${LOCAL_WORKSPACE_FOLDER:-/Users/$MACOS_USER/Developer/Private/manyfold-platform}"
+sudo mkdir -p "$(dirname "$HOST_REPO")"
+if [ ! -e "$HOST_REPO" ]; then
+    sudo ln -sf /workspace "$HOST_REPO"
+    echo "   ✓ Linked main repo path ($HOST_REPO)"
 fi
 
 # Create symlink for canonical worktrees path
