@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "This repository pins upstream images by tag and digest in plain manifests, and an installation runs those pins as they are (ADR-0055). Renovate keeps them current. Only the kubernetes manager is enabled: other dependencies are out of this configuration's scope.",
+  "extends": ["github>manyfold-dk/estate-baseline//renovate/default.json"],
+  "enabledManagers": ["kubernetes"],
+  "kubernetes": {
+    "description": "The plain manifests that pin an upstream image by tag and digest.",
+    "fileMatch": [
+      "^platform/resources/cloud/redis/redis\\.yaml$",
+      "^platform/resources/cloud/registry/base/[^/]+\\.yaml$",
+      "^platform/observability/synthetic/caddy-ingest\\.yaml$",
+      "^platform/argocd/components/ksops/repo-server-patch\\.yaml$"
+    ]
+  }
+}

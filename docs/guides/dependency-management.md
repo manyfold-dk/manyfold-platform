@@ -51,6 +51,23 @@ Renovate runs as a **self-hosted CronJob** in the cloud cluster's `platform-reno
 - **Renovate config:** `.github/renovate.json`
 - **Credentials:** The SOPS-managed `git-credentials` secret in the `platform-renovate` namespace
 
+### This Repository
+
+This repository's [`.github/renovate.json`](../../.github/renovate.json) enables only the
+`kubernetes` manager, for the plain manifests that pin an upstream image by tag and digest:
+the operations Redis, the registry and its mirrors, the synthetic-monitoring Caddy and the
+KSOPS component's init container. An installation runs these pins as they are and does not
+override them (ADR-0055), so a Renovate pull request here is the only place such an image
+changes.
+
+- Renovate runs here only when the installation's executor lists this repository; onboarding
+  is off, so this file must exist first.
+- A merged bump reaches a cluster when the installation moves its pin to a commit that
+  contains it. The installation's render harness shows the image change in that move.
+- A bump needs no new `.publish-allow.tsv` row. The Caddy manifest allows any version, and
+  the other tags (`7-alpine`, `2`, `3.21`) carry no three-part version for the gate to match;
+  Renovate keeps a tag's precision.
+
 ### Manual Trigger
 
 `<cloud-kubeconfig>` is the path of the kubeconfig file for the cloud cluster.
