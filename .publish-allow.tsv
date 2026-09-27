@@ -103,6 +103,7 @@ exact version	*	platform/tenants/_template/network-policy.yaml.tmpl
 manyfold.dk subdomain	storage.manyfold.dk	platform/tenants/_template/appproject.yaml.tmpl
 manyfold.dk subdomain	network.manyfold.dk	platform/tenants/_template/appproject.yaml.tmpl
 manyfold.dk subdomain	storage.manyfold.dk	platform/tenants/_template/objectbucket-policy.yaml.tmpl
+manyfold.dk subdomain	storage.manyfold.dk	platform/tenants/_template/README.md
 manyfold.dk subdomain	network.manyfold.dk	platform/tenants/_template/egressrule-policy.yaml.tmpl
 cluster-internal host	.svc	platform/components/blackbox-exporter/values-cloud.yaml
 cluster-internal host	.svc	platform/components/kube-prometheus-stack/values-cloud.yaml

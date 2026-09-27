@@ -7,8 +7,15 @@
 # provider with a seeded tenant ProviderConfig (cloudflare-r2 is admitted once a tenant R2
 # ProviderConfig is seeded, same pattern; seaweedfs is local-only); Hetzner region must be
 # an EU location set explicitly (the XRD default "auto" fails this on purpose); Object Lock
-# (WORM) is operator-only; the manyfold.dk/tenant label is required; the connection secret
-# name must be {{TENANT}}-prefixed.
+# (WORM) is operator-only; importExisting must be false, set explicitly (the XRD default true
+# imports the bucket before creating it, and the import of a bucket that does not exist fails
+# the OpenTofu plan, so the claim never reconciles; adopting an existing bucket is
+# operator-only); the manyfold.dk/tenant label is required; the connection secret name must
+# be {{TENANT}}-prefixed.
+#
+# A tenant rendered before the importExisting rule was added to the template does not carry
+# it: that tenant's claims can rely on the XRD default, which the rule would refuse on their
+# next apply (template README, "Tenants Rendered Before the Rule").
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -44,6 +51,11 @@ spec:
         !has(object.spec.parameters.lockRetentionDays) ||
         object.spec.parameters.lockRetentionDays == 0
       message: "Object Lock (lockRetentionDays > 0) is operator-provisioned only; tenant claims must not enable WORM."
+      reason: Forbidden
+    - expression: >-
+        has(object.spec.parameters.importExisting) &&
+        object.spec.parameters.importExisting == false
+      message: "ObjectBucket importExisting must be set to false (the default true imports a bucket that does not exist yet, and the claim never reconciles); adopting an existing bucket is operator-provisioned only."
       reason: Forbidden
     - expression: >-
         has(object.metadata.labels) && 'manyfold.dk/tenant' in object.metadata.labels &&

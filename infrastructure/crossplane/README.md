@@ -40,6 +40,7 @@ Both are Crossplane v2 namespaced composite resources (`apiextensions.crossplane
 | `retentionPrefix` | no | R2: the key prefix the lock and lifecycle rules apply to |
 | `lockRetentionDays` | no | R2 Bucket Lock (write once, read many) in days; `0` for none |
 | `lifecycleRetentionDays` | no | R2 lifecycle expiry in days; `0` for none |
+| `importExisting` | no | Hetzner: import `bucketName` into OpenTofu state before managing it. Defaults to `true`, which fails for a bucket that does not exist yet; set `false` for a new bucket |
 
 The XRD still accepts `seaweedfs`, the retired local cluster's object store; no Composition
 serves it.
@@ -86,7 +87,11 @@ Composition:
 ## Adding a bucket
 
 1. Write an `ObjectBucket` in the application's namespace, with `environment: cloud` and
-   `provider` in `compositionSelector.matchLabels`.
+   `provider` in `compositionSelector.matchLabels`. For a new Hetzner bucket, set
+   `importExisting: false`. Keep the default `true` only to adopt a bucket that exists already.
+   A tenant landing zone rendered from the current
+   [template](../../platform/tenants/_template/README.md#tenant-objectbucket-claims) requires
+   `false`, and adoption there is an operator action.
 2. Make sure the namespace has an OpenTofu ProviderConfig of the name the Composition uses.
 3. Mount the connection Secret in the application's Deployment.
 
@@ -124,6 +129,9 @@ kubectl logs -n crossplane-system -l pkg.crossplane.io/revision
 - **EgressRule not Synced, "needs a non-empty manyfold.dk/tenant label":** the Composition names the
   CiliumNetworkPolicy `<tenant>-egress-<name>` after the claim's `manyfold.dk/tenant` label and
   refuses to render without it. Add the label with the owning tenant's name.
+- **Hetzner claim never ready, the Workspace's plan fails at the import:** `importExisting`
+  is `true` (the XRD default, also when the claim omits the field) for a bucket that does not
+  exist. Set `importExisting: false`, so that the first apply creates the bucket.
 
 ## References
 
