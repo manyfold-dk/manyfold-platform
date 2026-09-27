@@ -166,7 +166,7 @@ compositions ([`infrastructure/crossplane/`](infrastructure/crossplane/README.md
 | `docs/standards/` | Standards the platform's applications implement; today the deep health API that health aggregation and self-healing read ([standard](docs/standards/deep-health-api.md)) |
 | `docs/setup/` | The macOS development setup and secrets management with SOPS and age ([macOS](docs/setup/macos-setup.md), [secrets](docs/setup/secrets-management.md)) |
 | `docs/claude-code/` | Working on this repository with Claude Code: getting started, features, shortcuts and parallel sessions in Git worktrees ([guide](docs/claude-code/README.md)) |
-| `docs/iphone-widget/` | A Scriptable widget for iOS that shows the platform's status as a traffic light from the website's status API ([README](docs/iphone-widget/README.md)) |
+| `docs/iphone-widget/`, `docs/omarchy-widget/` | Two status widgets that read the website's health API: a Scriptable widget for iOS with a traffic light and the five layers, and a QML widget for the Omarchy bar with the same model and a sparkline ([iOS](docs/iphone-widget/README.md), [Omarchy](docs/omarchy-widget/README.md)) |
 | `docs/templates/` | Templates for an ADR, a component README and a runbook |
 | `BEST-PRACTICES.md` | Lessons learned operating the platform: supply chain, Kubernetes and Argo CD, external-dns, Renovate, Helm charts, API and schema design, vendor integrations and known limitations, each with the problem and its solution ([document](BEST-PRACTICES.md)) |
 

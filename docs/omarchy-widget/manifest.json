@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "manyfold.platform-status",
+  "name": "Manyfold platform status",
+  "version": "1.0",
+  "author": "Manyfold",
+  "description": "Manyfold platform health in the Omarchy bar: one icon, and a panel laid out like the website's status page.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "StatusWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Manyfold status",
+    "description": "One icon coloured by platform health. Click for the panel: services, the stack, firing alerts, and the checks with uptime and response time.",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "apiBaseUrl": "https://manyfold.dk/api/v1",
+      "statusPageUrl": "https://manyfold.dk/status",
+      "dashboardUrl": "",
+      "refreshIntervalSec": 60,
+      "alertsUrl": ""
+    },
+    "schema": [
+      {
+        "key": "apiBaseUrl",
+        "type": "string",
+        "label": "Status API base URL",
+        "description": "The panel reads health/summary, health, status and status/history under it."
+      },
+      {
+        "key": "statusPageUrl",
+        "type": "string",
+        "label": "Status page (right click)"
+      },
+      {
+        "key": "dashboardUrl",
+        "type": "string",
+        "label": "Dashboard",
+        "description": "Empty hides the panel's dashboard button. The installation's Grafana, e.g. https://grafana.<domain>."
+      },
+      {
+        "key": "alertsUrl",
+        "type": "string",
+        "label": "Firing alerts page",
+        "description": "Empty derives <dashboardUrl>/alerting/list?search=state:firing."
+      },
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 15,
+        "max": 3600,
+        "step": 15,
+        "defaultValue": 60,
+        "description": "While the panel is open it refreshes every 30 seconds."
+      }
+    ]
+  }
+}

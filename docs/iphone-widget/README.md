@@ -51,9 +51,9 @@ Download **Scriptable** from the App Store. It's a free app that lets you run Ja
 
 | Size | Display |
 |------|---------|
-| **Small** | Traffic light + overall status |
-| **Medium** | Traffic light + status + service list |
-| **Large** | Full details with latency metrics |
+| **Small** | Traffic light, overall status, one dot per core layer |
+| **Medium** | Traffic light, overall status, the five layers by name |
+| **Large** | Same as medium |
 
 ## How It Works
 
@@ -62,20 +62,24 @@ Download **Scriptable** from the App Store. It's a free app that lets you run Ja
 │  iPhone Widget (Scriptable)         │
 │           │                         │
 │           ▼                         │
-│  https://manyfold.dk/api/v1/status  │
+│  https://manyfold.dk/api/v1/health  │
 │           │                         │
 │           ▼                         │
-│  Backend Status Endpoint            │
-│  - Checks /health/live              │
-│  - Checks frontend connectivity     │
-│  - Returns aggregated status        │
+│  Backend layered health endpoint    │
+│  - Infrastructure, network, cluster │
+│  - Platform, pipelines, apps        │
+│  - Firing alerts                    │
 └─────────────────────────────────────┘
 
-Status Mapping:
-  🟢 Operational  → All services healthy
-  🟡 Degraded     → Some services impaired
-  🔴 Outage       → Critical services down
+Status Mapping (core layers: infrastructure, cluster, platform, applications):
+  🟢 Operational  → No core layer degraded or unhealthy
+  🟡 Degraded     → At least one core layer degraded
+  🔴 Outage       → At least one core layer unhealthy
 ```
+
+The widget shows pipelines as information only: a failed pipeline does not change the overall
+status. The widget does not read the network layer or the firing alerts. The
+[Omarchy bar widget](../omarchy-widget/README.md) reads the same endpoint and counts both.
 
 ## Customization
 
@@ -83,8 +87,8 @@ Edit the `CONFIG` object at the top of the script:
 
 ```javascript
 const CONFIG = {
-    // Your status API URL
-    apiUrl: "https://manyfold.dk/api/v1/status",
+    // Layered health API endpoint
+    apiUrl: "https://manyfold.dk/api/v1/health",
 
     // Fallback URL for basic connectivity check
     fallbackUrl: "https://manyfold.dk",
@@ -132,26 +136,25 @@ The widget includes fallback logic:
 
 ## API Response Format
 
-The status endpoint returns:
+The widget reads `GET /api/v1/health`. The response has one object per layer, each with a
+`status` of `healthy`, `degraded`, `unhealthy` or `unknown`. Abridged:
 
 ```json
 {
-  "status": "operational",
-  "services": [
-    {
-      "name": "Backend API",
-      "status": "operational",
-      "latencyMs": 45
-    },
-    {
-      "name": "Frontend",
-      "status": "operational",
-      "latencyMs": 120
-    }
-  ],
-  "timestamp": "2024-01-24T21:30:00.000Z"
+  "overallStatus": "healthy",
+  "infrastructure": { "status": "healthy", "totalNodes": 6, "healthyNodes": 6 },
+  "network": { "status": "healthy", "cilium": { "name": "Cilium", "status": "healthy" } },
+  "cluster": { "status": "healthy", "totalPods": 176, "runningPods": 140, "failedPods": 0 },
+  "platform": { "status": "healthy", "argocd": { "name": "ArgoCD", "status": "healthy", "details": "65 apps synced" } },
+  "pipelines": { "status": "healthy", "totalRuns24h": 0, "failedRuns24h": 0 },
+  "applications": { "status": "healthy", "apps": [{ "name": "Website Backend", "status": "healthy", "latencyMs": 29 }] },
+  "activeAlerts": [{ "name": "Multiple Alerts", "severity": "warning", "message": "1 alerts firing" }],
+  "firingAlerts": 1,
+  "timestamp": "2026-09-27T12:30:06Z"
 }
 ```
+
+`GET /api/v1/status` is a smaller service summary that the website's `/status` view reads. The widget does not use it.
 
 ## Related
 
