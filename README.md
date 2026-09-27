@@ -125,7 +125,7 @@ compositions ([`infrastructure/crossplane/`](infrastructure/crossplane/README.md
 | `platform/observability/grafana/` | Grafana dashboards as ConfigMaps for the sidecar: an entry dashboard, platform and infrastructure health, the website backend's RED metrics and SLO, Web Vitals, synthetic checks and Velero backups |
 | `platform/observability/synthetic/` | The synthetic-monitoring ingest: a Caddy proxy in front of the Pushgateway and its ServiceMonitor; an installation adds its probe targets and its ingest route in an overlay |
 | `platform/resources/` | Plain manifests the platform installs beside its charts: the Hetzner cloud controller and CSI driver, the operations Redis, the in-cluster registry with pull-through mirrors, the Velero namespace |
-| `platform/argocd/base/` | The generic Argo CD configuration: command parameters, the generic keys of `argocd-cm` and the path-based server route; an installation layers its URL, identity provider and RBAC in an overlay |
+| `platform/argocd/base/` | The generic Argo CD configuration: command parameters and the generic keys of `argocd-cm`; an installation layers its URL, identity provider, RBAC and the routes that expose the server in an overlay |
 | `platform/argocd/components/ksops/` | A Kustomize component that installs KSOPS in the upstream repo-server Deployment, for the kustomization that installs Argo CD from the upstream manifest |
 | `platform/tenants/` | The tenant landing zone as a template and the scaffold of a tenant's own repository ([template](platform/tenants/_template/README.md), [scaffold](platform/tenants/_tenant-repo-scaffold/README.md)) |
 
