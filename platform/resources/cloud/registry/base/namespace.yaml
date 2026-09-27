@@ -1,0 +1,7 @@
+# Namespace for registry infrastructure
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: registry-system
+  labels:
+    app.kubernetes.io/part-of: registry

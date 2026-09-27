@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: {{TENANT}}-tenant
+  namespace: argocd
+  labels:
+    manyfold.dk/tenant: {{TENANT}}
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    # One Application per env directory in the tenant repo: gitops/<env>/
+    - git:
+        repoURL: https://github.com/manyfold-dk/{{TENANT}}.git
+        revision: HEAD
+        directories:
+          - path: gitops/prod
+          - path: gitops/dev   # dormant until the dir exists in the repo (see note below)
+  template:
+    metadata:
+      name: '{{TENANT}}-{{.path.basename}}'
+      labels:
+        manyfold.dk/tenant: {{TENANT}}
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      # Forced project -- the tenant cannot override this.
+      project: {{TENANT}}
+      revisionHistoryLimit: 5
+      source:
+        repoURL: https://github.com/manyfold-dk/{{TENANT}}.git
+        targetRevision: HEAD
+        path: '{{.path.path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        # Hardcoded mapping: gitops/prod -> {{TENANT}}-prod, gitops/dev -> {{TENANT}}-dev
+        namespace: '{{TENANT}}-{{.path.basename}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true

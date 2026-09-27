@@ -1,0 +1,258 @@
+# Shape values this repository is allowed to carry. Shape rows only; the gate refuses a name row.
+#
+# Upstream versions are public here by the owner's decision (ADR-0055 in the instance
+# repository): the build pins them, and Renovate keeps them current.
+exact version	*	build/parent/pom.xml
+# XML schema and namespace versions
+exact version	*	build/lint/pmd-ruleset.xml
+exact version	*	build/lint/spotbugs-exclude.xml
+# a plugin version with four parts reads as an address
+IPv4 address	4.10.3.0	build/parent/pom.xml
+# this file names the values it allows
+IPv4 address	*	.publish-allow.tsv
+exact version	*	.publish-allow.tsv
+cluster-internal host	*	.publish-allow.tsv
+manyfold.dk subdomain	*	.publish-allow.tsv
+private-network host	*	.publish-allow.tsv
+encrypted secret file	*	.publish-allow.tsv
+# The repository's own layout
+repository path	apps/slack-bot/
+repository path	infrastructure/clusters/
+repository path	docs/adr/
+# The platform's own in-cluster service addresses are its layout, not an installation's
+# (owner, 2026-09-24). Allowed per file, so a tenant's service cannot slip in elsewhere.
+cluster-internal host	.svc	apps/slack-bot/base/deployment.yaml
+# Upstream versions (ADR-0055), pinned by the application's manifests and lockfile
+exact version	*	apps/slack-bot/package.json
+exact version	*	apps/slack-bot/pnpm-lock.yaml
+exact version	*	apps/slack-bot/Dockerfile
+# CI installs pinned tools; a CI tool's version is not a version in use
+exact version	*	.github/workflows/ci.yml
+repository path	apps/accounting-mcp/
+exact version	*	apps/accounting-mcp/pom.xml
+exact version	*	apps/accounting-mcp/spotbugs-exclude.xml
+exact version	*	apps/accounting-mcp/Dockerfile
+# the server's bind address, not a host
+IPv4 address	0.0.0.0	apps/accounting-mcp/Dockerfile
+repository path	apps/website/
+repository path	platform/components/
+exact version	*	apps/website/backend/pom.xml
+exact version	*	apps/website/backend/spotbugs-exclude.xml
+exact version	*	apps/website/backend/src/main/resources/application.properties
+exact version	*	apps/website/backend/src/test/java/dk/manyfold/website/health/MockKubernetesHealthClient.java
+exact version	*	apps/website/Dockerfile
+exact version	*	apps/website/frontend/package.json
+exact version	*	apps/website/frontend/pnpm-lock.yaml
+exact version	*	apps/website/frontend/playwright.config.ts
+# bind addresses and the local development origin, not hosts
+IPv4 address	0.0.0.0	apps/website/Dockerfile
+IPv4 address	0.0.0.0	apps/website/backend/src/main/resources/application.properties
+IPv4 address	127.0.0.1	apps/website/backend/src/main/resources/application.properties
+IPv4 address	0.0.0.0	apps/website/frontend/playwright.config.ts
+cluster-internal host	.svc	apps/website/base/backend-deployment.yaml
+# the site's own publication check names the shapes it refuses
+cluster-internal host	.svc	apps/website/frontend/src/lib/decisions.spec.ts
+repository path	apps/synthetic/
+exact version	*	apps/synthetic/package.json
+exact version	*	apps/synthetic/pnpm-lock.yaml
+exact version	*	apps/synthetic/Dockerfile
+# Component values: bind addresses (an address read as a version too), the platform's own
+# in-cluster services, and upstream image versions (ADR-0055)
+IPv4 address	0.0.0.0	platform/components/alloy/values-cloud.yaml
+exact version	0.0.0	platform/components/alloy/values-cloud.yaml
+IPv4 address	0.0.0.0	platform/components/tempo/values-cloud.yaml
+exact version	0.0.0	platform/components/tempo/values-cloud.yaml
+IPv4 address	0.0.0.0	platform/components/openbao/values-cloud.yaml
+IPv4 address	127.0.0.1	platform/components/openbao/values-cloud.yaml
+exact version	*	platform/components/openbao/values-cloud.yaml
+cluster-internal host	.svc	platform/components/alloy/values-cloud.yaml
+cluster-internal host	.svc	platform/components/pushgateway/values-cloud.yaml
+repository path	platform/observability/
+repository path	platform/resources/
+# Platform resources: upstream release manifests and versions (ADR-0055), and the
+# platform's own in-cluster registry
+exact version	*	platform/resources/cloud/hetzner-ccm/kustomization.yaml
+exact version	*	platform/resources/cloud/hetzner-csi/kustomization.yaml
+cluster-internal host	.svc	platform/resources/cloud/registry/base/kustomization.yaml
+cluster-internal host	.svc	platform/resources/cloud/registry/base/local-registry.yaml
+repository path	infrastructure/crossplane/
+# Crossplane packages: upstream versions (ADR-0055)
+exact version	*	infrastructure/crossplane/providers-cloud/function-go-templating.yaml
+exact version	*	infrastructure/crossplane/providers-cloud/function-patch-and-transform.yaml
+exact version	*	infrastructure/crossplane/providers-cloud/provider-kubernetes.yaml
+exact version	*	infrastructure/crossplane/providers-cloud/provider-opentofu.yaml
+# The platform's own Kubernetes API groups (reverse-DNS names of its Crossplane APIs, not
+# hosts); the split spec classes these directories generic with the API groups public.
+# Allowed per file and by exact value.
+manyfold.dk subdomain	storage.manyfold.dk	infrastructure/crossplane/README.md
+manyfold.dk subdomain	network.manyfold.dk	infrastructure/crossplane/README.md
+manyfold.dk subdomain	network.manyfold.dk	infrastructure/crossplane/compositions/cloud/egressrule-kubernetes.yaml
+manyfold.dk subdomain	storage.manyfold.dk	infrastructure/crossplane/compositions/cloud/objectbucket-hetzner.yaml
+manyfold.dk subdomain	storage.manyfold.dk	infrastructure/crossplane/compositions/cloud/objectbucket-r2.yaml
+manyfold.dk subdomain	network.manyfold.dk	infrastructure/crossplane/xrds/egressrule-xrd.yaml
+manyfold.dk subdomain	storage.manyfold.dk	infrastructure/crossplane/xrds/objectbucket-xrd.yaml
+repository path	infrastructure/modules/
+repository path	platform/tenants/
+repository path	platform/argocd/
+# Tenant landing-zone template: the in-cluster API server address, the Cilium version the
+# baseline policy was verified on (ADR-0055), and the platform's own API groups
+cluster-internal host	.svc	platform/tenants/_template/applicationset.yaml.tmpl
+cluster-internal host	.svc	platform/tenants/_template/appproject.yaml.tmpl
+cluster-internal host	.svc	platform/tenants/_template/README.md
+exact version	*	platform/tenants/_template/network-policy.yaml.tmpl
+manyfold.dk subdomain	storage.manyfold.dk	platform/tenants/_template/appproject.yaml.tmpl
+manyfold.dk subdomain	network.manyfold.dk	platform/tenants/_template/appproject.yaml.tmpl
+manyfold.dk subdomain	storage.manyfold.dk	platform/tenants/_template/objectbucket-policy.yaml.tmpl
+manyfold.dk subdomain	network.manyfold.dk	platform/tenants/_template/egressrule-policy.yaml.tmpl
+cluster-internal host	.svc	platform/components/blackbox-exporter/values-cloud.yaml
+cluster-internal host	.svc	platform/components/kube-prometheus-stack/values-cloud.yaml
+cluster-internal host	.svc	platform/observability/synthetic/caddy-ingest.yaml
+exact version	2.11.4	platform/observability/synthetic/caddy-ingest.yaml
+exact version	4.4.0	platform/argocd/base/repo-server-patch.yaml
+# Documents: the published ADRs and runbooks.
+# The runbooks directory is this repository's own layout. The ADRs and runbooks also name
+# paths of the platform repository as they stood when each decision was written.
+repository path	docs/runbooks/
+repository path	docs/claude-code/
+repository path	docs/migration/
+repository path	docs/setup/
+repository path	infrastructure/ci/
+repository path	infrastructure/hetzner/
+repository path	infrastructure/tekton/
+# Upstream open-source versions and specification versions the documents name (ADR-0055)
+exact version	1.0.0	docs/adr/0003-versioning-and-commit-standards.md
+exact version	1.17.1	docs/adr/0020-backup-strategy.md
+exact version	1.18.6	docs/adr/0007-cilium-cni-and-network-policy-strategy.md
+exact version	1.36.0	docs/adr/0015-kubernetes-distribution.md
+exact version	1.8.0	docs/adr/0016-infrastructure-as-code-tool.md
+exact version	11.3.2	docs/adr/0020-backup-strategy.md
+exact version	2.0.0	docs/adr/0003-versioning-and-commit-standards.md
+exact version	2.1.8	docs/adr/0010-build-system-and-dependency-management.md
+exact version	26.3.3	docs/adr/0022-remote-access-strategy.md
+exact version	3.30.6	docs/adr/0010-build-system-and-dependency-management.md
+exact version	3.4.2	docs/adr/0010-build-system-and-dependency-management.md
+exact version	3.5.13	docs/adr/0010-build-system-and-dependency-management.md
+exact version	3.6.0	docs/adr/0003-versioning-and-commit-standards.md
+exact version	3.9.12	docs/adr/0009-development-environment-strategy.md
+exact version	4.5.0	docs/adr/0010-build-system-and-dependency-management.md
+exact version	5.7.2	docs/adr/0010-build-system-and-dependency-management.md
+exact version	6.0.5	docs/adr/0010-build-system-and-dependency-management.md
+exact version	9.17.0	docs/adr/0010-build-system-and-dependency-management.md
+exact version	v1.0.0	docs/adr/0003-versioning-and-commit-standards.md
+exact version	v1.12.1	docs/adr/0015-kubernetes-distribution.md
+exact version	v1.13.0	docs/adr/0015-kubernetes-distribution.md
+exact version	v1.13.1	docs/adr/0020-backup-strategy.md
+exact version	v1.18.0	docs/runbooks/disaster-recovery/velero-operations.md
+exact version	v1.9.5	docs/adr/0014-cloud-provider-selection.md
+exact version	v1.92.5	docs/adr/0022-remote-access-strategy.md
+exact version	v2.1.4	docs/adr/0005-argocd-crossplane-responsibility-split.md
+exact version	v8.4.0	docs/adr/0020-backup-strategy.md
+exact version	v8.4.0	docs/runbooks/disaster-recovery/velero-operations.md
+# The website application's own version in the build example
+exact version	0.1.0	docs/adr/0010-build-system-and-dependency-management.md
+# The two published Crossplane API groups of the platform (owner decision 4, 2026-09-25):
+# reverse-DNS API group names, not hosts. Allowed per file and by exact value.
+manyfold.dk subdomain	network.manyfold.dk	docs/adr/0041-tenant-self-service-egress.md
+manyfold.dk subdomain	network.manyfold.dk	docs/adr/0054-public-platform-and-private-instance-repositories.md
+manyfold.dk subdomain	storage.manyfold.dk	docs/adr/0005-argocd-crossplane-responsibility-split.md
+manyfold.dk subdomain	storage.manyfold.dk	docs/adr/0033-multi-tenancy-model-and-tenant-isolation.md
+manyfold.dk subdomain	storage.manyfold.dk	docs/adr/0041-tenant-self-service-egress.md
+manyfold.dk subdomain	storage.manyfold.dk	docs/adr/0054-public-platform-and-private-instance-repositories.md
+# kind default pod and service CIDRs in the local cluster example, and loopback addresses
+# (a host-local registry port, in-pod and on-node loopback); each address also reads as a version
+IPv4 address	10.244.0.0	docs/adr/0007-cilium-cni-and-network-policy-strategy.md
+IPv4 address	10.96.0.0	docs/adr/0007-cilium-cni-and-network-policy-strategy.md
+IPv4 address	127.0.0.1	docs/adr/0008-container-registry-strategy.md
+IPv4 address	127.0.0.1	docs/runbooks/applications/debug.md
+IPv4 address	127.0.0.1	docs/runbooks/disaster-recovery/openbao-raft-restore.md
+IPv4 address	127.0.0.1	docs/runbooks/talos/upgrade-os.md
+exact version	10.244.0	docs/adr/0007-cilium-cni-and-network-policy-strategy.md
+exact version	10.96.0	docs/adr/0007-cilium-cni-and-network-policy-strategy.md
+exact version	127.0.0	docs/adr/0008-container-registry-strategy.md
+exact version	127.0.0	docs/runbooks/applications/debug.md
+exact version	127.0.0	docs/runbooks/disaster-recovery/openbao-raft-restore.md
+exact version	127.0.0	docs/runbooks/talos/upgrade-os.md
+# The platform's own in-cluster service addresses (the API server and the platform's own
+# components), its layout like its paths (owner, 2026-09-24); allowed per file
+cluster-internal host	.cluster.local	docs/runbooks/applications/debug.md
+cluster-internal host	.cluster.local	docs/runbooks/cluster/debug-networking.md
+cluster-internal host	.cluster.local	docs/runbooks/disaster-recovery/full-rebuild.md
+cluster-internal host	.svc	docs/adr/0005-argocd-crossplane-responsibility-split.md
+cluster-internal host	.svc	docs/adr/0021-feature-flags-service.md
+cluster-internal host	.svc	docs/adr/0023-self-healing-platform.md
+cluster-internal host	.svc	docs/adr/0040-tenant-app-managed-secrets-via-openbao-transit.md
+cluster-internal host	.svc	docs/runbooks/applications/debug.md
+cluster-internal host	.svc	docs/runbooks/applications/deploy.md
+cluster-internal host	.svc	docs/runbooks/cluster/debug-networking.md
+cluster-internal host	.svc	docs/runbooks/disaster-recovery/full-rebuild.md
+cluster-internal host	.svc	docs/runbooks/tenant-onboarding.md
+# Podman's host.containers.internal name in the development environment ADR
+private-network host	.internal	docs/adr/0009-development-environment-strategy.md
+# ADR-0018: the platform's own identity provider service address (owner, 2026-09-24); ADR-0025: upstream Talos releases (ADR-0055)
+cluster-internal host	.svc	docs/adr/0018-identity-management-strategy.md
+exact version	v1.12.1	docs/adr/0025-software-upgrade-strategy.md
+exact version	v1.9.5	docs/adr/0025-software-upgrade-strategy.md
+# Documents, round 5b: the architecture overview, iPhone widget and templates directories are
+# this repository's own layout; the archived recommendations name the SOPS file-name
+# convention without contents; the macOS setup guide names the upstream tool versions it
+# was tested with (ADR-0055)
+repository path	docs/architecture/
+repository path	docs/iphone-widget/
+repository path	docs/templates/
+encrypted secret file	.enc.yaml	docs/claude-code/CLAUDE-CODE-RECOMMENDATIONSv2.md
+exact version	1.3.1	docs/setup/macos-setup.md
+exact version	1.35.0	docs/setup/macos-setup.md
+exact version	3.2.5	docs/setup/macos-setup.md
+exact version	3.10.2	docs/setup/macos-setup.md
+exact version	3.17.1	docs/setup/macos-setup.md
+exact version	25.3.0	docs/setup/macos-setup.md
+# OpenTofu bootstrap root: upstream provider versions in the lock file and the minimum
+# OpenTofu version (ADR-0055); the Cilium chart and Gateway API versions the cloud README
+# installs (ADR-0055); any-address rules (firewall sources, bind addresses, the default
+# route), not an installation's address; each also reads as a version
+exact version	*	infrastructure/clusters/cloud/bootstrap/.terraform.lock.hcl
+exact version	1.6.0	infrastructure/clusters/cloud/bootstrap/versions.tf
+exact version	v1.4.1	infrastructure/clusters/cloud/bootstrap/README.md
+exact version	1.19.1	infrastructure/clusters/cloud/bootstrap/README.md
+IPv4 address	0.0.0.0	infrastructure/clusters/cloud/bootstrap/network.tf
+exact version	0.0.0	infrastructure/clusters/cloud/bootstrap/network.tf
+IPv4 address	0.0.0.0	infrastructure/clusters/cloud/bootstrap/talos.tf
+exact version	0.0.0	infrastructure/clusters/cloud/bootstrap/talos.tf
+# Documents, round 5: the guides and standards directories are this repository's own layout;
+# the secrets guide names SOPS file names without their contents; the health API standard's
+# schema example version; BEST-PRACTICES names the upstream Talos release a lesson is about
+# (ADR-0055) and the loopback address, which also reads as a version
+repository path	docs/guides/
+repository path	docs/standards/
+encrypted secret file	.enc.yaml	docs/setup/secrets-management.md
+exact version	1.0.0	docs/standards/deep-health-api.md
+exact version	v1.12.1	BEST-PRACTICES.md
+IPv4 address	127.0.0.1	BEST-PRACTICES.md
+exact version	127.0.0	BEST-PRACTICES.md
+# Development container, tooling scripts and images. Upstream tool versions in the
+# devcontainer Dockerfile and its documents and the DuckDB version of the backup validator
+# image (ADR-0055); example versions quoted in upstream shell-configuration comments
+# (Powerlevel10k, oh-my-zsh); the dev server bind address (also read as a version); the
+# draw.io exporter serves its page on a loopback port (also read as a version)
+repository path	infrastructure/images/
+repository path	platform/base/
+exact version	*	.devcontainer/Dockerfile
+exact version	3.9.12	.devcontainer/QUICK-START.md
+exact version	3.9.12	.devcontainer/README.md
+exact version	3.8.1	.devcontainer/dotfiles/p10k.zsh
+exact version	5.7.1	.devcontainer/dotfiles/zshrc.template
+IPv4 address	0.0.0.0	.devcontainer/devcontainer.json
+exact version	0.0.0	.devcontainer/devcontainer.json
+exact version	1.1.3	infrastructure/images/object-backup-validate/Dockerfile
+IPv4 address	127.0.0.1	scripts/drawio-to-png.js
+exact version	127.0.0	scripts/drawio-to-png.js
+# Agent instructions vendored from the public estate-baseline payload (not edited here).
+# The payload names the plan and spec directories of its document lifecycle: a layout
+# convention, like the other path rows.
+repository path	docs/plans/
+repository path	docs/specs/
+# The payload's own release number, which vendor.sh writes into the marker line and the
+# stamp; estate-baseline allows the same string in its VERSION file. Not a version in use.
+exact version	*	CLAUDE.md
+exact version	*	AGENTS.md
+exact version	*	.claude/.baseline-agent-version

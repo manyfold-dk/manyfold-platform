@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kube-system
+
+# Hetzner CSI driver
+# https://github.com/hetznercloud/csi-driver
+#
+# The driver has no volume snapshots (it ships no csi-snapshotter;
+# hetznercloud/csi-driver#849), so there is no VolumeSnapshotClass here. Velero
+# backs up volume contents at file level instead (fs-backup).
+#
+# The driver reads its API token from the Secret kube-system/hcloud; see
+# ../hetzner-ccm/kustomization.yaml.
+resources:
+  - https://raw.githubusercontent.com/hetznercloud/csi-driver/v2.18.3/deploy/kubernetes/hcloud-csi.yml

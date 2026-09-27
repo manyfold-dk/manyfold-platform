@@ -1,0 +1,14 @@
+// The external probe Worker, with example vars for `pnpm edge:dev`. A deployment keeps its
+// own copy of this file with its Worker name, ingest endpoint and fronts, and deploys it with
+// `pnpm exec wrangler deploy -c <that file>`; the example name keeps a bare deploy from
+// replacing a real Worker. INGEST_TOKEN is a Worker secret.
+{
+  "name": "synthetic-probe-example",
+  "main": "src/edge/index.ts",
+  "compatibility_date": "2025-01-01",
+  "triggers": { "crons": ["*/2 * * * *"] },
+  "vars": {
+    "INGEST_URL": "https://ingest.example.com",
+    "TARGETS": "[{\"front\":\"www\",\"url\":\"https://www.example.com/\",\"expect\":200},{\"front\":\"app\",\"url\":\"https://app.example.com/\",\"expect\":302}]",
+  },
+}

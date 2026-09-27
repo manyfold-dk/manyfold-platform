@@ -1,0 +1,64 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: egressrule-kubernetes
+  labels:
+    environment: cloud
+spec:
+  compositeTypeRef:
+    apiVersion: network.manyfold.dk/v1alpha1
+    kind: EgressRule
+  mode: Pipeline
+  pipeline:
+    - step: render-ciliumnetworkpolicy
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          # Renders one additive allow-CNP per claim. The composed Object is marked
+          # Ready immediately (gotemplating.fn.crossplane.io/ready) -- a CNP has no
+          # meaningful readiness condition -- so the XR reports Ready once rendered.
+          template: |
+            {{- $xr := .observed.composite.resource }}
+            {{- $ns := $xr.metadata.namespace }}
+            {{- $name := $xr.metadata.name }}
+            {{- $tenant := index $xr.metadata.labels "manyfold.dk/tenant" }}
+            {{- $ports := $xr.spec.parameters.ports | default (list 443) }}
+            apiVersion: kubernetes.m.crossplane.io/v1alpha1
+            kind: Object
+            metadata:
+              name: {{ $name }}-egress
+              namespace: {{ $ns }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: egress-cnp
+                gotemplating.fn.crossplane.io/ready: "True"
+            spec:
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: kubernetes-provider
+              forProvider:
+                manifest:
+                  apiVersion: cilium.io/v2
+                  kind: CiliumNetworkPolicy
+                  metadata:
+                    name: {{ $tenant }}-egress-{{ $name }}
+                    namespace: {{ $ns }}
+                    labels:
+                      manyfold.dk/tenant: {{ $tenant }}
+                      app.kubernetes.io/managed-by: crossplane
+                  spec:
+                    endpointSelector: {}
+                    egress:
+                      - toFQDNs:
+                        {{- range $xr.spec.parameters.fqdns }}
+                          - matchName: {{ . }}
+                        {{- end }}
+                        toPorts:
+                          - ports:
+                            {{- range $ports }}
+                              - port: "{{ . }}"
+                                protocol: TCP
+                            {{- end }}

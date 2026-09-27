@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mother-of-dashboards
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+data:
+  mother-of-dashboards.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+          "id": 1,
+          "options": { "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false }, "content": "# MANYFOLD PLATFORM STATUS\n\nConsolidated view of all platform layers. Click any section to drill down.", "mode": "markdown" },
+          "type": "text"
+        },
+        { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 3 }, "id": 100, "panels": [], "title": "Layer Status Overview", "type": "row" },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "UNHEALTHY" }, "1": { "color": "green", "index": 0, "text": "HEALTHY" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } } },
+          "gridPos": { "h": 4, "w": 5, "x": 0, "y": 4 },
+          "id": 10,
+          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"}) == bool count(kube_node_info)", "refId": "A" }],
+          "title": "Infrastructure",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "UNHEALTHY" }, "1": { "color": "green", "index": 0, "text": "HEALTHY" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } } },
+          "gridPos": { "h": 4, "w": 5, "x": 5, "y": 4 },
+          "id": 11,
+          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "(count(kube_pod_status_phase{phase=\"Failed\"} == 1) or vector(0)) == bool 0", "refId": "A" }],
+          "title": "Cluster",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "UNHEALTHY" }, "1": { "color": "green", "index": 0, "text": "HEALTHY" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } } },
+          "gridPos": { "h": 4, "w": 5, "x": 10, "y": 4 },
+          "id": 12,
+          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "(count(argocd_app_info{health_status=\"Degraded\"}) or vector(0)) == bool 0", "refId": "A" }],
+          "title": "ArgoCD",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } } },
+          "gridPos": { "h": 4, "w": 5, "x": 15, "y": 4 },
+          "id": 14,
+          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(up{job=\"website-backend\"}) or vector(0)", "refId": "A" }],
+          "title": "Applications",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 3 }] }, "unit": "short" } },
+          "gridPos": { "h": 4, "w": 4, "x": 20, "y": 4 },
+          "id": 15,
+          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)", "refId": "A" }],
+          "title": "Active Alerts",
+          "type": "stat"
+        },
+        { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 }, "id": 101, "panels": [], "title": "Quick Stats", "type": "row" },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" } },
+          "gridPos": { "h": 3, "w": 5, "x": 0, "y": 9 },
+          "id": 20,
+          "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_node_info)", "refId": "A" }],
+          "title": "Nodes",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" } },
+          "gridPos": { "h": 3, "w": 5, "x": 5, "y": 9 },
+          "id": 21,
+          "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_pod_info)", "refId": "A" }],
+          "title": "Pods",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" } },
+          "gridPos": { "h": 3, "w": 5, "x": 10, "y": 9 },
+          "id": 22,
+          "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(argocd_app_info)", "refId": "A" }],
+          "title": "ArgoCD Apps",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "percent" } },
+          "gridPos": { "h": 3, "w": 5, "x": 15, "y": 9 },
+          "id": 23,
+          "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "refId": "A" }],
+          "title": "CPU Usage",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "percent" } },
+          "gridPos": { "h": 3, "w": 4, "x": 20, "y": 9 },
+          "id": 24,
+          "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - (sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)))", "refId": "A" }],
+          "title": "Memory Usage",
+          "type": "stat"
+        },
+        { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 }, "id": 102, "panels": [], "title": "Active Alerts", "type": "row" },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+            "overrides": [{ "matcher": { "id": "byName", "options": "Severity" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }, { "id": "mappings", "value": [{ "options": { "critical": { "color": "red", "index": 0 }, "warning": { "color": "yellow", "index": 1 }, "info": { "color": "blue", "index": 2 } }, "type": "value" }] }] }]
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 13 },
+          "id": 30,
+          "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "ALERTS{alertstate=\"firing\"}", "format": "table", "instant": true, "refId": "A" }],
+          "title": "Firing Alerts",
+          "transformations": [{ "id": "organize", "options": { "excludeByName": { "Time": true, "Value": true, "__name__": true, "alertstate": true }, "renameByName": { "alertname": "Alert", "namespace": "Namespace", "severity": "Severity" } } }],
+          "type": "table"
+        },
+        { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 }, "id": 103, "panels": [], "title": "Drill-Down Links", "type": "row" },
+        {
+          "gridPos": { "h": 3, "w": 24, "x": 0, "y": 22 },
+          "id": 40,
+          "options": { "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false }, "content": "**Layer Dashboards:** [Infrastructure](/d/infrastructure-health) | [Platform Health](/d/platform-health) | [Backend API](/d/backend-api) | [SLO](/d/backend-slo) | [Velero](/d/velero-backups)", "mode": "markdown" },
+          "type": "text"
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["overview", "mother-dashboard", "consolidated"],
+      "templating": { "list": [] },
+      "time": { "from": "now-1h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Mother of Dashboards",
+      "uid": "mother-of-dashboards",
+      "version": 1
+    }

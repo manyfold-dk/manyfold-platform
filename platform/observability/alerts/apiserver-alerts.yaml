@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: apiserver-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: observability
+spec:
+  groups:
+    - name: apiserver.rules
+      rules:
+        # Tuned replacement for the kube-prometheus-stack default KubeAggregatedAPIDown
+        # (disabled via defaultRules.disabled in the helm values). The stock rule fires
+        # after `for: 5m`, which catches the ~10-15m windows where the aggregated metrics
+        # API (v1beta1.metrics.k8s.io) is briefly unreachable while a node restarts and
+        # Cilium / metrics-server recover -- self-healing blips, not a real outage. Require
+        # the unavailability to persist for 20m so only a genuinely stuck aggregated API
+        # pages. expr/annotations are copied verbatim from the upstream rule.
+        - alert: KubeAggregatedAPIDown
+          expr: |
+            (1 - max by (name, namespace, cluster)(avg_over_time(aggregator_unavailable_apiservice{job="apiserver"}[10m]))) * 100 < 85
+          for: 20m
+          labels:
+            severity: warning
+          annotations:
+            description: "Kubernetes aggregated API {{ $labels.name }}/{{ $labels.namespace }} has been only {{ $value | humanize }}% available over the last 10m on cluster {{ $labels.cluster }}."
+            runbook_url: "https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeaggregatedapidown"
+            summary: Kubernetes aggregated API is down.

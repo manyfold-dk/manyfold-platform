@@ -1,0 +1,9 @@
+# OpenTofu operator files: backend credentials, variable files, state and the generated
+# node configurations stay with the operator and never enter Git
+infrastructure/.working/
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.auto.tfvars
+backend.hcl

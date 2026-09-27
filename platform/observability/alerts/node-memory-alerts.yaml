@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-memory-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: observability
+spec:
+  groups:
+    - name: node-memory.rules
+      rules:
+        # Tuned replacement for the kube-prometheus-stack default NodeMemoryMajorPagesFaults
+        # (disabled via defaultRules.disabled in the helm values). Worker-1 carries the
+        # observability stack and legitimately bursts major page faults during Prometheus
+        # TSDB compaction and Loki chunk flushes, which made the stock 500/s + 15m rule flap.
+        # Require a higher rate sustained for longer so only genuine memory thrashing pages.
+        - alert: NodeMemoryMajorPagesFaults
+          expr: |
+            rate(node_vmstat_pgmajfault{job="node-exporter"}[5m]) > 1000
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Memory major page faults are occurring at very high rate.
+            description: "Node {{ $labels.instance }} is sustaining over 1000 major page faults/s for 30m (currently {{ printf \"%.0f\" $value }}/s). Check memory headroom and whether the observability stack should be rebalanced off this node."
+            runbook_url: "https://runbooks.prometheus-operator.dev/runbooks/node/nodememorymajorpagesfaults"

@@ -1,0 +1,87 @@
+# Patch ArgoCD repo-server to support KSOPS (Kustomize-SOPS) decryption
+# This enables ArgoCD to decrypt SOPS-encrypted secrets at sync time
+#
+# Components:
+# 1. Init container: Downloads and verifies KSOPS binary
+# 2. Environment: Sets SOPS_AGE_KEY_FILE for age decryption
+# 3. Volume mounts: KSOPS binary and age private key
+#
+# Security:
+# - Alpine image pinned by digest to prevent supply-chain attacks
+# - KSOPS binary verified with SHA256 checksum from official release
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      # Init container to install KSOPS plugin
+      # Note: Using Alpine to download KSOPS binary because the viaductoss/ksops image is distroless
+      initContainers:
+        - name: install-ksops
+          # Pinned Alpine 3.21 multi-arch manifest (works on both arm64 and amd64)
+          image: alpine:3.21@sha256:5405e8f36ce1878720f71217d664aa3dea32e5e5df11acbf07fc78ef5661465b
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              KSOPS_VERSION="4.4.0"
+              # Detect architecture and set appropriate binary/checksum
+              ARCH=$(uname -m)
+              case "$ARCH" in
+                x86_64|amd64)
+                  KSOPS_ARCH="x86_64"
+                  KSOPS_SHA256="72973ce5a97d7ad0318c9f6ae4df2aa94a4a564c45fdf71772b759dff4df0cb4"
+                  ;;
+                aarch64|arm64)
+                  KSOPS_ARCH="arm64"
+                  KSOPS_SHA256="df0ced165a73801c7f03e4e650314e645f050c1a453f891f6f7ca45695af6fc6"
+                  ;;
+                *)
+                  echo "Unsupported architecture: $ARCH" && exit 1
+                  ;;
+              esac
+              KSOPS_URL="https://github.com/viaduct-ai/kustomize-sops/releases/download/v${KSOPS_VERSION}/ksops_${KSOPS_VERSION}_Linux_${KSOPS_ARCH}.tar.gz"
+              echo "Installing KSOPS v${KSOPS_VERSION} for ${KSOPS_ARCH}..."
+              wget -q -O /tmp/ksops.tar.gz "${KSOPS_URL}"
+              echo "Verifying checksum..."
+              echo "${KSOPS_SHA256}  /tmp/ksops.tar.gz" | sha256sum -c -
+              tar -xzf /tmp/ksops.tar.gz -C /custom-tools
+              chmod +x /custom-tools/ksops
+              echo "KSOPS installed and verified successfully"
+          volumeMounts:
+            - name: custom-tools
+              mountPath: /custom-tools
+
+      containers:
+        - name: argocd-repo-server
+          env:
+            # Tell SOPS where to find the age private key
+            - name: SOPS_AGE_KEY_FILE
+              value: /home/argocd/.config/sops/age/keys.txt
+            # Add custom tools to PATH and configure kustomize
+            - name: XDG_CONFIG_HOME
+              value: /home/argocd/.config
+          volumeMounts:
+            # Mount KSOPS binary
+            - name: custom-tools
+              mountPath: /usr/local/bin/ksops
+              subPath: ksops
+            # Mount age private key for SOPS decryption
+            - name: sops-age
+              mountPath: /home/argocd/.config/sops/age
+
+      volumes:
+        # Shared volume for KSOPS binaries
+        - name: custom-tools
+          emptyDir: {}
+        # Age private key from secret (created by setup-sops-age.sh)
+        - name: sops-age
+          secret:
+            secretName: sops-age
+            optional: true
+            items:
+              - key: keys.txt
+                path: keys.txt

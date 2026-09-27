@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - objectbucket-r2.yaml
+  - objectbucket-hetzner.yaml
+  - egressrule-kubernetes.yaml

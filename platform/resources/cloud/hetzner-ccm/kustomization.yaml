@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kube-system
+
+# Hetzner Cloud Controller Manager, networks variant
+# https://github.com/hetznercloud/hcloud-cloud-controller-manager
+resources:
+  - https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/download/v1.31.1/ccm-networks.yaml
+
+# The CCM and the CSI driver read the Hetzner API token and the private network's ID
+# from the Secret kube-system/hcloud (keys `token` and `network`). The Secret is
+# created by hand when the cluster is bootstrapped and is not kept in Git:
+#
+#   kubectl create secret generic hcloud -n kube-system \
+#     --from-literal=token="$HCLOUD_TOKEN" \
+#     --from-literal=network=<network-id>

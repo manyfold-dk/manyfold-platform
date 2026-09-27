@@ -1,0 +1,62 @@
+# Example inputs for the cloud bootstrap root.
+# Copy to terraform.tfvars (never committed), or keep the file elsewhere and
+# pass it with -var-file, and replace every placeholder.
+#
+# Every variable below is required (variables.tf has no installation defaults),
+# except gateway_ip, which stays unset on the first apply.
+# If this directory also holds an instance.auto.tfvars, OpenTofu loads it after
+# terraform.tfvars, so its values win over terraform.tfvars; a -var-file or -var
+# on the command line wins over both. Instance-only files may declare further
+# variables; tofu plan names any required variable that has no value.
+
+# Cluster
+cluster_name = "<cluster-name>"
+environment  = "production"
+
+# Hetzner Cloud
+hcloud_location        = "<location>"     # fsn1, nbg1 or hel1
+hcloud_network_zone    = "<network-zone>" # the network zone that contains hcloud_location
+controlplane_count     = 3 # an odd number keeps etcd quorum
+worker_count           = <worker-count>
+controlplane_node_type = "<server-type>"
+worker_node_type       = "<server-type>"
+api_load_balancer_type = "<load-balancer-type>"
+
+# Talos / Kubernetes (a Talos snapshot for talos_version must exist, see README.md)
+talos_version      = "<talos-version>"
+kubernetes_version = "<kubernetes-version>"
+
+# Network (private ranges; the node subnet lies inside the network)
+network_cidr = "<network-cidr>"
+subnet_cidr  = "<node-subnet-cidr>"
+pod_cidr     = "<pod-cidr>"
+service_cidr = "<service-cidr>"
+
+# DNS (Cloudflare)
+cloudflare_zone_id    = "<zone-id-of-domain>"
+cloudflare_account_id = "<account-id>"
+domain                = "<domain>"
+api_subdomain         = "<api-subdomain>"      # Kubernetes API at <api-subdomain>.<domain>
+internal_subdomain    = "<internal-subdomain>" # registry mirrors at mirror-*.<internal-subdomain>.<domain>
+
+# Gateway (the external IP of the Cilium Gateway load balancer). The address
+# exists only after the cluster runs: leave gateway_ip unset on the first apply
+# and set it afterwards (README.md "Registry Mirrors").
+# gateway_ip = "<gateway-ip>"
+
+# Object storage (Cloudflare R2)
+velero_backups_bucket_name         = "<velero-bucket>"
+openbao_snapshots_bucket_name      = "<openbao-snapshot-bucket>"
+velero_backups_replica_bucket_name = "<velero-replica-bucket>"
+tenant_carveouts_bucket_name       = "<tenant-carveout-bucket>"
+
+# Security / Lockdown
+# Enable lockdown_mode to restrict firewall to admin_ips only
+# In lockdown mode: SSH, K8s API, Talos API restricted to admin_ips
+# In lockdown mode: HTTP/HTTPS (80, 443) completely closed
+# With lockdown_closes_api_load_balancer also true: the API load balancer's public
+# interface is disabled; reach the API on a control plane node's public address
+# (README.md "Lockdown Mode"). Switch it on after every node has the API host entry.
+lockdown_mode                     = false
+lockdown_closes_api_load_balancer = false
+admin_ips     = [] # e.g. ["<your-address>/32"]

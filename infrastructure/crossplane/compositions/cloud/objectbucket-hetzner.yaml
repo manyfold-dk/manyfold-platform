@@ -1,0 +1,185 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: objectbucket-hetzner
+  labels:
+    environment: cloud
+    provider: hetzner
+spec:
+  compositeTypeRef:
+    apiVersion: storage.manyfold.dk/v1alpha1
+    kind: ObjectBucket
+
+  mode: Pipeline
+  pipeline:
+    - step: opentofu-hetzner-bucket
+      functionRef:
+        name: function-patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+        writeConnectionSecretToRef:
+          patches:
+            - type: FromCompositeFieldPath
+              fromFieldPath: spec.writeConnectionSecretToRef.name
+              toFieldPath: name
+            - type: FromCompositeFieldPath
+              fromFieldPath: metadata.namespace
+              toFieldPath: namespace
+        resources:
+          - name: hetzner-bucket
+            base:
+              apiVersion: opentofu.m.upbound.io/v1beta1
+              kind: Workspace
+              spec:
+                providerConfigRef:
+                  kind: ProviderConfig
+                  name: hetzner
+                forProvider:
+                  source: Inline
+                  vars:
+                    - key: bucket_name
+                      value: ""
+                    - key: location
+                      value: "hel1"
+                    - key: lock_retention_days
+                      value: "0"
+                    - key: import_existing
+                      value: "true"
+                  module: |
+                    terraform {
+                      required_providers {
+                        minio = {
+                          source  = "aminueza/minio"
+                          version = "~> 3.13"
+                        }
+                      }
+                    }
+
+                    locals {
+                      lock_retention_days = tonumber(var.lock_retention_days)
+                    }
+
+                    variable "bucket_name" {
+                      type = string
+                    }
+
+                    variable "location" {
+                      type    = string
+                      default = "fsn1"
+                    }
+
+                    variable "lock_retention_days" {
+                      type    = string
+                      default = "0"
+                    }
+
+                    variable "import_existing" {
+                      type    = bool
+                      default = true
+                    }
+
+                    provider "minio" {
+                      minio_server   = "${var.location}.your-objectstorage.com"
+                      minio_user     = trimspace(file("${path.module}/s3-access-key.txt"))
+                      minio_password = trimspace(file("${path.module}/s3-secret-key.txt"))
+                      minio_region   = var.location
+                      minio_ssl      = true
+                    }
+
+                    # Adopt a pre-existing bucket into state on first apply. New buckets
+                    # (import_existing = false) skip this and are created fresh; importing a
+                    # non-existent bucket would otherwise fail the plan.
+                    import {
+                      for_each = var.import_existing ? toset([var.bucket_name]) : toset([])
+                      to       = minio_s3_bucket.bucket
+                      id       = each.value
+                    }
+
+                    resource "minio_s3_bucket" "bucket" {
+                      bucket         = var.bucket_name
+                      acl            = "private"
+                      # Object Lock must be enabled at creation; per-object COMPLIANCE
+                      # retention is applied by the application that writes the objects.
+                      object_locking = local.lock_retention_days > 0
+                    }
+
+                    output "bucket_name" {
+                      value = minio_s3_bucket.bucket.bucket
+                    }
+
+                    output "endpoint" {
+                      value = "https://${var.location}.your-objectstorage.com"
+                    }
+
+                    output "region" {
+                      value = var.location
+                    }
+
+                    output "access_key" {
+                      value     = trimspace(file("${path.module}/s3-access-key.txt"))
+                      sensitive = true
+                    }
+
+                    output "secret_key" {
+                      value     = trimspace(file("${path.module}/s3-secret-key.txt"))
+                      sensitive = true
+                    }
+                writeConnectionSecretToRef:
+                  name: placeholder
+            connectionDetails:
+              - name: endpoint
+                type: FromFieldPath
+                fromFieldPath: status.atProvider.outputs.endpoint
+              - name: bucket
+                type: FromFieldPath
+                fromFieldPath: status.atProvider.outputs.bucket_name
+              - name: region
+                type: FromFieldPath
+                fromFieldPath: status.atProvider.outputs.region
+              - name: access-key
+                type: FromConnectionSecretKey
+                fromConnectionSecretKey: access_key
+              - name: secret-key
+                type: FromConnectionSecretKey
+                fromConnectionSecretKey: secret_key
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.bucketName
+                toFieldPath: spec.forProvider.vars[0].value
+              # The XRD defaults region to `auto` (R2's value); Hetzner has no such location,
+              # so `auto` becomes the Workspace's default location and anything else passes.
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.region
+                toFieldPath: spec.forProvider.vars[1].value
+                transforms:
+                  - type: match
+                    match:
+                      patterns:
+                        - type: literal
+                          literal: auto
+                          result: hel1
+                      fallbackTo: Input
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.lockRetentionDays
+                toFieldPath: spec.forProvider.vars[2].value
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%.0f"
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.importExisting
+                toFieldPath: spec.forProvider.vars[3].value
+                transforms:
+                  - type: convert
+                    convert:
+                      toType: string
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.uid
+                toFieldPath: spec.writeConnectionSecretToRef.name
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%s-hetzner"

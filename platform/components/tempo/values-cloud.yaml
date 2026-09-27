@@ -1,0 +1,48 @@
+# Tempo Cloud (Hetzner) Values
+#
+# Cloud-specific configuration:
+# - 7-day retention for traces (vs 48h local)
+# - PVC storage for persistence
+# - Higher resources for production workloads
+
+tempo:
+  # OTLP receiver for traces from Alloy
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+  # Storage configuration - filesystem with PVC
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+
+  # 7-day retention for traces
+  retention: 168h
+
+  # Disable multitenancy
+  multitenancy_enabled: false
+
+  # Resource limits for production. MUST be nested under `tempo:` -- the
+  # grafana/tempo single-binary chart reads `tempo.resources`; a top-level
+  # `resources:` is silently ignored, which left tempo-0 running with no
+  # memory limit (limitless growth on an already-pressured worker).
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 200m
+    limits:
+      memory: 1Gi
+
+# Persistence for trace data
+persistence:
+  enabled: true
+  storageClassName: hcloud-volumes
+  size: 10Gi

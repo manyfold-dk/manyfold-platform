@@ -1,0 +1,214 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: objectbucket-cloudflare-r2
+  labels:
+    environment: cloud
+    provider: cloudflare-r2
+spec:
+  compositeTypeRef:
+    apiVersion: storage.manyfold.dk/v1alpha1
+    kind: ObjectBucket
+
+  mode: Pipeline
+  pipeline:
+    - step: opentofu-r2-bucket
+      functionRef:
+        name: function-patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+        writeConnectionSecretToRef:
+          patches:
+            - type: FromCompositeFieldPath
+              fromFieldPath: spec.writeConnectionSecretToRef.name
+              toFieldPath: name
+            - type: FromCompositeFieldPath
+              fromFieldPath: metadata.namespace
+              toFieldPath: namespace
+        resources:
+          - name: r2-bucket
+            base:
+              apiVersion: opentofu.m.upbound.io/v1beta1
+              kind: Workspace
+              spec:
+                providerConfigRef:
+                  kind: ProviderConfig
+                  name: cloudflare-r2
+                forProvider:
+                  source: Inline
+                  vars:
+                    - key: bucket_name
+                      value: ""
+                    - key: jurisdiction
+                      value: "eu"
+                    - key: retention_prefix
+                      value: ""
+                    - key: lock_retention_days
+                      value: "0"
+                    - key: lifecycle_retention_days
+                      value: "0"
+                  module: |
+                    terraform {
+                      required_providers {
+                        cloudflare = {
+                          source  = "cloudflare/cloudflare"
+                          version = "~> 5.0"
+                        }
+                      }
+                    }
+
+                    locals {
+                      creds = jsondecode(file("credentials.json"))
+                      lock_retention_days = tonumber(var.lock_retention_days)
+                      lifecycle_retention_days = tonumber(var.lifecycle_retention_days)
+                    }
+
+                    variable "bucket_name" {
+                      type = string
+                    }
+
+                    variable "jurisdiction" {
+                      type    = string
+                      default = "eu"
+                    }
+
+                    variable "retention_prefix" {
+                      type    = string
+                      default = ""
+                    }
+
+                    variable "lock_retention_days" {
+                      type    = string
+                      default = "0"
+                    }
+
+                    variable "lifecycle_retention_days" {
+                      type    = string
+                      default = "0"
+                    }
+
+                    resource "cloudflare_r2_bucket" "bucket" {
+                      account_id   = local.creds.account_id
+                      name         = var.bucket_name
+                      jurisdiction = var.jurisdiction
+                    }
+
+                    resource "cloudflare_r2_bucket_lock" "bucket" {
+                      count        = local.lock_retention_days > 0 ? 1 : 0
+                      account_id   = local.creds.account_id
+                      bucket_name  = cloudflare_r2_bucket.bucket.name
+                      jurisdiction = var.jurisdiction
+
+                      rules = [{
+                        id      = "lock-retention"
+                        enabled = true
+                        prefix  = var.retention_prefix
+                        condition = {
+                          type            = "Age"
+                          max_age_seconds = local.lock_retention_days * 24 * 3600
+                        }
+                      }]
+                    }
+
+                    resource "cloudflare_r2_bucket_lifecycle" "bucket" {
+                      count        = local.lifecycle_retention_days > 0 ? 1 : 0
+                      account_id   = local.creds.account_id
+                      bucket_name  = cloudflare_r2_bucket.bucket.name
+                      jurisdiction = var.jurisdiction
+
+                      rules = [{
+                        id      = "expire-retention"
+                        enabled = true
+                        conditions = {
+                          prefix = var.retention_prefix
+                        }
+                        delete_objects_transition = {
+                          condition = {
+                            type    = "Age"
+                            max_age = local.lifecycle_retention_days * 24 * 3600
+                          }
+                        }
+                      }]
+                    }
+
+                    output "bucket_name" {
+                      value = cloudflare_r2_bucket.bucket.name
+                    }
+
+                    output "endpoint" {
+                      value = "https://${local.creds.account_id}.eu.r2.cloudflarestorage.com"
+                    }
+
+                    output "region" {
+                      value = "auto"
+                    }
+
+                    output "jurisdiction" {
+                      value = var.jurisdiction
+                    }
+
+                    output "access_key" {
+                      value     = trimspace(file("${path.module}/s3-access-key.txt"))
+                      sensitive = true
+                    }
+
+                    output "secret_key" {
+                      value     = trimspace(file("${path.module}/s3-secret-key.txt"))
+                      sensitive = true
+                    }
+                writeConnectionSecretToRef:
+                  name: placeholder
+            connectionDetails:
+              - name: endpoint
+                type: FromFieldPath
+                fromFieldPath: status.atProvider.outputs.endpoint
+              - name: bucket
+                type: FromFieldPath
+                fromFieldPath: status.atProvider.outputs.bucket_name
+              - name: region
+                type: FromFieldPath
+                fromFieldPath: status.atProvider.outputs.region
+              - name: jurisdiction
+                type: FromFieldPath
+                fromFieldPath: status.atProvider.outputs.jurisdiction
+              - name: access-key
+                type: FromConnectionSecretKey
+                fromConnectionSecretKey: access_key
+              - name: secret-key
+                type: FromConnectionSecretKey
+                fromConnectionSecretKey: secret_key
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.bucketName
+                toFieldPath: spec.forProvider.vars[0].value
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.jurisdiction
+                toFieldPath: spec.forProvider.vars[1].value
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.retentionPrefix
+                toFieldPath: spec.forProvider.vars[2].value
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.lockRetentionDays
+                toFieldPath: spec.forProvider.vars[3].value
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%.0f"
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.lifecycleRetentionDays
+                toFieldPath: spec.forProvider.vars[4].value
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%.0f"
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.uid
+                toFieldPath: spec.writeConnectionSecretToRef.name
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%s-r2"

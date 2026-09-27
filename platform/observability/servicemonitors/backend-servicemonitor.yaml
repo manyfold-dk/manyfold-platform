@@ -1,0 +1,26 @@
+# ServiceMonitor for the website backend application
+#
+# Scrapes Prometheus metrics from the Quarkus backend at /metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: website-backend
+  namespace: observability
+  labels:
+    release: observability
+    app: website-backend
+spec:
+  # Use the 'app' label from the target service as the job label
+  # This ensures metrics are labeled with job="website-backend"
+  jobLabel: app
+  namespaceSelector:
+    matchNames:
+      - website
+  selector:
+    matchLabels:
+      app: website-backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

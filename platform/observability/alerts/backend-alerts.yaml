@@ -1,0 +1,141 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: backend-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: observability
+spec:
+  groups:
+    - name: backend-api.rules
+      rules:
+        # High error rate alert
+        - alert: BackendHighErrorRate
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{job="website-backend", status=~"5.."}[5m]))
+              /
+              sum(rate(http_server_requests_seconds_count{job="website-backend"}[5m]))
+            ) > 0.01
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Backend API high error rate
+            description: "Backend API error rate is {{ $value | humanizePercentage }} over the last 5 minutes (threshold: 1%)."
+
+        # Critical error rate alert
+        - alert: BackendCriticalErrorRate
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{job="website-backend", status=~"5.."}[5m]))
+              /
+              sum(rate(http_server_requests_seconds_count{job="website-backend"}[5m]))
+            ) > 0.05
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Backend API critical error rate
+            description: "Backend API error rate is {{ $value | humanizePercentage }} over the last 5 minutes (threshold: 5%)."
+
+        # Slow response time alert. Only requests a visitor makes count: the Prometheus
+        # scrape (/metrics), the kubelet probes (/health/*) and the deep health check,
+        # which waits on every dependency by design, are excluded. At a few requests
+        # per minute a p99 is the single slowest request, so the rule takes p95. The
+        # hold is longer than the window: a burst of slow requests leaves the 5-minute
+        # window before 15 minutes pass, so only a slowdown that keeps going fires.
+        - alert: BackendSlowResponses
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job="website-backend", uri!~"/metrics|/health/.*|/api/v1/health/deep"}[5m]))) > 0.5
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Backend API slow responses
+            description: "Backend API p95 latency has been above 500ms for 15 minutes (now {{ $value | humanizeDuration }})."
+
+        # Pod restarts alert
+        - alert: BackendPodRestarts
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="website", container="backend"}[1h]) > 2
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: Backend pod restarting frequently
+            description: "Backend pod {{ $labels.pod }} has restarted {{ $value | humanize }} times in the last hour."
+
+        # Pod not ready alert
+        - alert: BackendPodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="website", pod=~"website-backend.*", condition="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Backend pod not ready
+            description: "Backend pod {{ $labels.pod }} has not been ready for 5 minutes."
+
+        # High memory usage alert
+        - alert: BackendHighMemoryUsage
+          expr: |
+            (
+              sum(container_memory_working_set_bytes{namespace="website", container="backend"})
+              /
+              sum(kube_pod_container_resource_limits{namespace="website", container="backend", resource="memory"})
+            ) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Backend high memory usage
+            description: "Backend container memory usage is at {{ $value | humanizePercentage }} of limit."
+
+        # JVM heap usage alert
+        - alert: BackendJVMHighHeapUsage
+          expr: |
+            (
+              sum(jvm_memory_used_bytes{job="website-backend", area="heap"})
+              /
+              sum(jvm_memory_max_bytes{job="website-backend", area="heap"})
+            ) > 0.85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Backend JVM high heap usage
+            description: "Backend JVM heap usage is at {{ $value | humanizePercentage }}."
+
+    - name: backend-slo.rules
+      rules:
+        # SLO burn rate alert (fast burn - 1h window)
+        - alert: BackendSLOFastBurn
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{job="website-backend", status=~"5.."}[1h]))
+              /
+              sum(rate(http_server_requests_seconds_count{job="website-backend"}[1h]))
+            ) / 0.001 > 14.4
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Backend API SLO fast burn rate
+            description: "Backend API is burning error budget at {{ $value | printf \"%.1f\" }}x the sustainable rate (threshold: 14.4x in 1h window)."
+
+        # SLO burn rate alert (slow burn - 6h window)
+        - alert: BackendSLOSlowBurn
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{job="website-backend", status=~"5.."}[6h]))
+              /
+              sum(rate(http_server_requests_seconds_count{job="website-backend"}[6h]))
+            ) / 0.001 > 6
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Backend API SLO slow burn rate
+            description: "Backend API is burning error budget at {{ $value | printf \"%.1f\" }}x the sustainable rate (threshold: 6x in 6h window)."

@@ -1,0 +1,146 @@
+# OpenBao Cloud (Hetzner) Values
+#
+# Production configuration:
+# - Raft integrated storage on hcloud-volumes PVC
+# - Exposed only via Tailscale (no public ingress)
+# - Provides secrets backend for ManyClaw (AppRole auth)
+
+server:
+  enabled: true
+
+  # Velero fs-backup annotation for daily PVC backup of Raft data
+  annotations:
+    backup.velero.io/backup-volumes: data
+
+  # Single replica with Raft integrated storage
+  ha:
+    enabled: false
+
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+
+      listener "tcp" {
+        address = "0.0.0.0:8200"
+        tls_disable = true
+      }
+
+      storage "raft" {
+        path = "/openbao/data"
+      }
+
+      api_addr = "http://0.0.0.0:8200"
+      cluster_addr = "http://0.0.0.0:8201"
+
+      audit "file" "stdout" {
+        options {
+          file_path = "stdout"
+        }
+      }
+
+  # Persistent storage for Raft data
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: hcloud-volumes
+    accessMode: ReadWriteOnce
+
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 500m
+
+  # Readiness passes while unsealed (200), and also while sealed or uninitialised (204), so
+  # the Service keeps an endpoint to initialise and unseal through. The auto-unseal sidecar
+  # below unseals after a restart.
+  readinessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+
+  # Liveness: more permissive (unsealed OR sealed)
+  livenessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200"
+
+  # PodSecurity restricted.
+  # The chart's pod-level default is already compliant (runAsNonRoot, runAsUser 100,
+  # runAsGroup/fsGroup 1000, seccompProfile RuntimeDefault), so `pod` is deliberately left
+  # unset -- setting it would replace that default wholesale. The chart's container default
+  # sets only allowPrivilegeEscalation, leaving capabilities unrestricted; overriding
+  # `container` replaces it entirely, so allowPrivilegeEscalation is repeated here.
+  # The chart reads this under server.statefulSet, not server -- `server.securityContext`
+  # is silently ignored (verified by rendering the chart both ways).
+  statefulSet:
+    securityContext:
+      container:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
+  serviceAccount:
+    create: true
+    name: openbao
+
+  # Disable default ingress -- exposed via Tailscale
+  ingress:
+    enabled: false
+
+  # Auto-unseal sidecar: monitors seal status and unseals with K8s secret keys.
+  # OpenBao uses Shamir seals and becomes sealed on every pod restart.
+  # Without this, OpenBao's clients and the backup jobs fail until someone unseals it by hand.
+  extraContainers:
+    - name: auto-unseal
+      image: quay.io/openbao/openbao:2.5.0
+      # extraContainers are rendered verbatim -- the chart's container securityContext
+      # never reaches them, which is why this sidecar had none at all.
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      command:
+        - /bin/sh
+        - -c
+        - |
+          export BAO_ADDR=http://127.0.0.1:8200
+          echo "[auto-unseal] Starting unseal monitor..."
+          while true; do
+            if bao status -format=json 2>/dev/null | grep -q '"sealed": true'; then
+              echo "[auto-unseal] OpenBao is sealed, unsealing..."
+              for i in 1 2 3; do
+                KEY=$(cat /openbao/unseal-keys/unseal-key-$i)
+                bao operator unseal "$KEY" 2>&1 || true
+              done
+              echo "[auto-unseal] Unseal complete"
+            fi
+            sleep 10
+          done
+      volumeMounts:
+        - name: userconfig-openbao-unseal-keys
+          mountPath: /openbao/unseal-keys
+          readOnly: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 50m
+          memory: 32Mi
+
+  extraVolumes:
+    - type: secret
+      name: openbao-unseal-keys
+
+# Disable injector (ManyClaw fetches secrets via CLI)
+injector:
+  enabled: false
+
+# UI accessible via Tailscale
+ui:
+  enabled: true
+  serviceType: ClusterIP

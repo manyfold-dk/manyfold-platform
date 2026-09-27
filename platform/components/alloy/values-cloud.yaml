@@ -1,0 +1,165 @@
+# Alloy Cloud (Hetzner) Values
+#
+# Cloud-specific configuration:
+# - Higher resources for production workloads
+# - DaemonSet for log and trace collection from the worker nodes
+
+alloy:
+  configMap:
+    create: true
+    content: |
+      // Loki endpoint
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.observability.svc:3100/loki/api/v1/push"
+        }
+      }
+
+      // Kubernetes pod discovery
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // Relabel: filter to local node, construct log file paths, add metadata.
+      // Reads from /var/log/pods/ on each node instead of proxying through the
+      // apiserver (loki.source.kubernetes created 700+ persistent CONNECT streams
+      // that consumed 1.8GB on one apiserver).
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        // Only collect logs for pods on this node.
+        // K8S_NODE_NAME is provided by the Alloy helm chart via the
+        // downward API (spec.nodeName). The previous attempt referenced
+        // env("HOSTNAME") and then env("NODE_NAME"); the former was
+        // resolving correctly to the node name on this chart but Alloy
+        // still tailed zero files (loki_source_file_files_active_total = 0),
+        // and the latter was empty because the custom extraEnv field name
+        // didn't match what this chart version expects.
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "__host__"
+        }
+        rule {
+          source_labels = ["__host__"]
+          regex         = env("K8S_NODE_NAME")
+          action        = "keep"
+        }
+
+        // Construct log file path: /var/log/pods/<ns>_<pod>_<uid>/<container>/*.log
+        // The kubelet uses underscores between namespace/pod/uid, then a slash
+        // before container — so we capture each component and template the
+        // path explicitly rather than relying on a single separator.
+        //
+        // IMPORTANT: $-references in the replacement MUST use ${N} braces
+        // when the next character is alphanumeric/underscore. Go regex
+        // Expand() parses `$1_` as the named group `${1_}` (which does
+        // not exist and returns empty), not as `${1}_`. Without braces,
+        // this rule produced /var/log/pods/<uid>/<container>/*.log
+        // (legacy format) and Alloy's local.file_match found zero files.
+        rule {
+          source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_name", "__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+          separator     = "/"
+          regex         = "(.+)/(.+)/(.+)/(.+)"
+          target_label  = "__path__"
+          replacement   = "/var/log/pods/${1}_${2}_${3}/${4}/*.log"
+        }
+
+        // Metadata labels
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app"]
+          target_label  = "app"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app_name"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+      }
+
+      // Tail log files from host filesystem
+      local.file_match "pods" {
+        path_targets = discovery.relabel.pods.output
+      }
+
+      loki.source.file "pods" {
+        targets    = local.file_match.pods.targets
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // ===========================================
+      // Tracing: OTLP receiver -> Tempo
+      // ===========================================
+
+      // OTLP receiver for traces from instrumented applications
+      otelcol.receiver.otlp "default" {
+        grpc {
+          endpoint = "0.0.0.0:4317"
+        }
+        http {
+          endpoint = "0.0.0.0:4318"
+        }
+        output {
+          traces = [otelcol.exporter.otlp.tempo.input]
+        }
+      }
+
+      // Export traces to Tempo
+      otelcol.exporter.otlp "tempo" {
+        client {
+          endpoint = "tempo.observability.svc:4317"
+          tls {
+            insecure = true
+          }
+        }
+      }
+  # Extra ports for OTLP receiver (traces)
+  extraPorts:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
+
+  # Mount host log directory for file-based log collection
+  mounts:
+    varlog: true
+
+  # The chart reads `alloy.resources`; a top-level `resources:` is silently ignored.
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+
+controller:
+  type: daemonset
+  # No control-plane toleration: small (4 GB) control-plane nodes need every Mi
+  # of headroom for kube-apiserver. Trade-off: CP system pod logs (apiserver,
+  # etcd, kubelet) are not shipped to Loki. Revisit when the control-plane nodes
+  # are larger.
+
+serviceAccount:
+  create: true
+
+rbac:
+  create: true
+

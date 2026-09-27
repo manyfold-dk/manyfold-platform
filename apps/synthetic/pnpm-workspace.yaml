@@ -1,0 +1,5 @@
+# wrangler bundles the edge Worker with esbuild and runs it locally in workerd; both ship
+# platform binaries through their install scripts.
+allowBuilds:
+  esbuild: true
+  workerd: true

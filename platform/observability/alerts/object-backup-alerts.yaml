@@ -1,0 +1,55 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: object-backup-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: observability
+spec:
+  groups:
+    - name: object-backup-velero-replica.rules
+      rules:
+        - alert: ObjectBackupJobFailed
+          # kube_job_status_failed counts failed *pod attempts*, so it stays > 0 even
+          # when the Job ultimately succeeded after a retry (backoffLimit: 2). Gate on
+          # the Job NOT having reached Complete so we only fire on a genuinely failed
+          # Job. `unless on(namespace, job_name)` matches the two series despite the
+          # extra `condition` label on kube_job_complete. (kube_job_failed does not
+          # exist in this kube-state-metrics version -- verified against live metrics.)
+          expr: |
+            kube_job_status_failed{namespace="velero", job_name=~"object-backup-velero-replica.*"} > 0
+            unless on(namespace, job_name)
+            kube_job_complete{namespace="velero", job_name=~"object-backup-velero-replica.*", condition="true"} > 0
+          for: 15m
+          labels:
+            severity: warning
+            backup_instance: velero-replica
+          annotations:
+            summary: Velero replica object-backup job failed
+            description: "The Velero primary-to-replica sync CronJob has a failed Job. The WORM second copy is not being refreshed."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/object-backup-failed.md"
+
+        - alert: ObjectBackupStale
+          expr: |
+            time() - kube_cronjob_status_last_successful_time{namespace="velero", cronjob="object-backup-velero-replica"} > 108000
+          for: 10m
+          labels:
+            severity: warning
+            backup_instance: velero-replica
+          annotations:
+            summary: Velero replica object-backup has not succeeded in more than 30 hours
+            description: "The Velero primary-to-replica sync CronJob has missed its expected daily success window."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/object-backup-failed.md"
+
+        - alert: ObjectBackupSuspended
+          expr: |
+            kube_cronjob_spec_suspend{namespace="velero", cronjob="object-backup-velero-replica"} == 1
+          for: 24h
+          labels:
+            severity: warning
+            backup_instance: velero-replica
+          annotations:
+            summary: Velero replica object-backup CronJob is still suspended
+            description: "The Velero primary-to-replica sync CronJob has remained suspended for more than 24 hours. If bring-up is pending, finish provisioning (tofu apply + R2 tokens) and unsuspend."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/object-backup-failed.md"

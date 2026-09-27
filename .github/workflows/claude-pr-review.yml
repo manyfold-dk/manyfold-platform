@@ -1,0 +1,84 @@
+name: Claude PR Review
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to review'
+        required: true
+        type: number
+      review_type:
+        description: 'Type of review'
+        required: false
+        default: 'general'
+        type: choice
+        options:
+          - general
+          - security
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ inputs.pr_number }}
+
+            Perform a ${{ inputs.review_type }} review of the pull request.
+
+            If asked for a general review, focus on:
+            ## Code Quality
+            - Code follows project conventions (Google Java Style for backend, ESLint for frontend)
+            - No commented-out code or debug statements
+            - DRY principle and meaningful naming
+            - Proper error handling
+
+            ## Project Standards
+            - Conventional Commits format: <type>[scope]: <description>
+            - Lowercase naming conventions per ADR-0002
+            - Monorepo structure alignment per ADR-0001
+
+            ## Testing
+            - Unit tests for new functionality
+            - Test coverage maintained
+
+            ## Documentation
+            - README/docs updated if needed
+            - ADR created for architectural decisions
+
+            If asked for a security review, focus on:
+            ## Kubernetes & Container Security
+            - No privileged containers or unnecessary capabilities
+            - Resource limits defined (CPU, memory)
+            - Security contexts properly configured
+            - Image tags pinned (no :latest in production)
+
+            ## Secrets & Credentials
+            - No hardcoded secrets, passwords, or API keys
+            - Secrets referenced via Kubernetes Secrets or external secret management
+
+            ## RBAC & Access Control
+            - Principle of least privilege for ServiceAccounts
+            - No cluster-admin unless absolutely required
+
+            ## CI/CD Security (Tekton/ArgoCD)
+            - Pipeline tasks don't expose secrets in logs
+            - ArgoCD applications follow GitOps best practices
+
+            Use inline comments for specific code issues.
+            Post a summary comment with overall assessment.
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

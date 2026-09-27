@@ -1,0 +1,55 @@
+name: Claude Code
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue or PR number'
+        required: false
+        type: number
+      prompt:
+        description: 'Custom prompt for Claude (optional)'
+        required: false
+        type: string
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      actions: read # Required for Claude to read CI results on PRs
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # This is an optional setting that allows Claude to read CI results on PRs
+          additional_permissions: |
+            actions: read
+
+          # The action has no issue-number input, and in agent mode (every
+          # workflow_dispatch run) it skips the run when the prompt is empty.
+          # The issue/PR number therefore goes into the prompt; a custom prompt
+          # is appended as additional instructions, or used alone without a number.
+          prompt: >-
+            ${{ inputs.issue_number
+            && format('Work on issue or pull request #{0} in {1}. Read it first with gh issue view {0} or gh pr view {0}.{2}{3}',
+            inputs.issue_number, github.repository,
+            inputs.prompt && ' Additional instructions: ' || '', inputs.prompt)
+            || inputs.prompt || '' }}
+
+          # Read-only gh commands, so that Claude can read the issue or PR named above.
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+          claude_args: '--allowedTools "Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*)"'
+

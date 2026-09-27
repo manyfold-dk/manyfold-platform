@@ -1,0 +1,85 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: objectbuckets.storage.manyfold.dk
+spec:
+  group: storage.manyfold.dk
+  names:
+    kind: ObjectBucket
+    plural: objectbuckets
+  scope: Namespaced
+
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    bucketName:
+                      type: string
+                      description: "Name of the object storage bucket"
+                    provider:
+                      type: string
+                      description: "Cloud provider backend"
+                      enum:
+                        - cloudflare-r2
+                        - hetzner
+                        - seaweedfs
+                    region:
+                      type: string
+                      description: "Region/location for the bucket"
+                      default: "auto"
+                    jurisdiction:
+                      type: string
+                      description: "Hard data residency boundary for providers that support it"
+                      default: "eu"
+                      enum:
+                        - eu
+                    retentionPrefix:
+                      type: string
+                      description: "Object key prefix for retention controls. Empty string applies to the whole bucket."
+                      default: ""
+                    lockRetentionDays:
+                      type: integer
+                      description: "Days objects under retentionPrefix are immutable. 0 disables object lock."
+                      minimum: 0
+                      default: 0
+                    lifecycleRetentionDays:
+                      type: integer
+                      description: "Days before lifecycle expires objects under retentionPrefix. 0 disables lifecycle expiry. For locked buckets, keep this greater than lockRetentionDays."
+                      minimum: 0
+                      default: 0
+                    importExisting:
+                      type: boolean
+                      description: "Adopt a pre-existing bucket into OpenTofu state on first apply. Set false for brand-new buckets so creation is not blocked by importing a non-existent object."
+                      default: true
+                  required:
+                    - bucketName
+                    - provider
+                writeConnectionSecretToRef:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: "Name of the Secret to write connection details to"
+                  required:
+                    - name
+            status:
+              type: object
+              properties:
+                bucketName:
+                  type: string
+                endpoint:
+                  type: string
+                region:
+                  type: string
+                jurisdiction:
+                  type: string

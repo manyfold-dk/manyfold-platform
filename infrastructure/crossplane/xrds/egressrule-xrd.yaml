@@ -1,0 +1,43 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: egressrules.network.manyfold.dk
+spec:
+  group: network.manyfold.dk
+  names:
+    kind: EgressRule
+    plural: egressrules
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    fqdns:
+                      type: array
+                      description: "Exact DNS names the workload may reach on TLS/443. No wildcards."
+                      minItems: 1
+                      items:
+                        type: string
+                    ports:
+                      type: array
+                      description: "TCP ports permitted. Defaults to [443]; the tenant admission policy rejects anything other than 443."
+                      default: [443]
+                      items:
+                        type: integer
+                  required:
+                    - fqdns
+            status:
+              type: object
+              properties:
+                renderedPolicy:
+                  type: string

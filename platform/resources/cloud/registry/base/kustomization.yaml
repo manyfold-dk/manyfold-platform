@@ -1,0 +1,31 @@
+# In-cluster container registries, deployed by the cloud overlay in the parent directory
+#
+# This includes:
+#   - The local registry (local-registry) for images built in the cluster
+#   - Pull-through cache mirrors for external registries
+#   - RBAC objects left over from the retired containerd-configuration DaemonSet
+#     (containerd-config.yaml); the Talos machine config sets the node mirrors
+#
+# The local registry is reachable at:
+#   - In the cluster: local-registry.registry-system.svc:5000
+#   - Through the overlay's HTTPRoute (the hostname is an instance value in the overlay)
+#   - NodePort 30500 (local-registry-nodeport Service, see local-registry.yaml)
+#
+# The pull-through caches are reachable in the cluster at:
+#   - mirror-docker-io.registry-system.svc:5000 (for docker.io)
+#   - mirror-quay-io.registry-system.svc:5000 (for quay.io)
+#   - mirror-ghcr-io.registry-system.svc:5000 (for ghcr.io)
+#   - mirror-registry-k8s-io.registry-system.svc:5000 (for registry.k8s.io)
+# and through the overlay's HTTPRoutes, whose hostnames (instance values in the overlay)
+# are the names the nodes' containerd uses.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - local-registry.yaml
+  - mirror-docker-io.yaml
+  - mirror-quay-io.yaml
+  - mirror-ghcr-io.yaml
+  - mirror-registry-k8s-io.yaml
+  - containerd-config.yaml

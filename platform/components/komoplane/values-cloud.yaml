@@ -1,0 +1,12 @@
+# Komoplane Helm values - Cloud cluster (Hetzner/Talos)
+# Crossplane dashboard for visualizing XRDs, compositions, and managed resources
+#
+# No ingress: the installation reaches it through a private Tailscale ingress.
+
+# PodSecurity restricted.
+# The chart's container securityContext default is already fully compliant (runAsNonRoot,
+# runAsUser 1000, allowPrivilegeEscalation false, capabilities drop ALL, readOnlyRootFilesystem);
+# seccompProfile was the only gap. Helm deep-merges maps, so the chart's fsGroup: 2000 survives.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault

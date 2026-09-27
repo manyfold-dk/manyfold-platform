@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MANYFOLD // SYSTEM STATUS</title>
+    <meta name="robots" content="noindex" />
+    <!--
+      No webfont request. This page is public, and the privacy note promises
+      that nothing on the site fetches fonts from a third-party CDN; it used to
+      pull JetBrains Mono and Space Grotesk from Google Fonts, which would have
+      sent every visitor's address to a US host. System stacks instead.
+    -->
+    <style>
+      :root {
+        --bg-primary: #0a0a0a;
+        --bg-secondary: #111111;
+        --bg-tertiary: #1a1a1a;
+        --text-primary: #f0f0f0;
+        --text-secondary: #888888;
+        --text-muted: #555555;
+        --accent-green: #00ff88;
+        --accent-yellow: #ffcc00;
+        --accent-red: #ff3366;
+        --accent-blue: #00ccff;
+        --border-color: #2a2a2a;
+        --grid-color: rgba(255, 255, 255, 0.03);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow-x: hidden;
+        background-image:
+          linear-gradient(var(--grid-color) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+        background-size: 50px 50px;
+        background-position: -1px -1px;
+      }
+
+      .noise-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        opacity: 0.015;
+        z-index: 1000;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 60px 24px;
+        position: relative;
+        z-index: 1;
+      }
+
+      header {
+        margin-bottom: 80px;
+        position: relative;
+      }
+
+      .header-grid {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 40px;
+        align-items: start;
+      }
+
+      .logo-section h1 {
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          'Helvetica Neue',
+          sans-serif;
+        font-size: 14px;
+        font-weight: 300;
+        letter-spacing: 0.3em;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+        text-transform: uppercase;
+      }
+
+      .status-title {
+        font-size: clamp(32px, 8vw, 56px);
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .traffic-light {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        position: relative;
+      }
+
+      .traffic-light::before {
+        content: 'SYS.STATUS';
+        position: absolute;
+        top: -10px;
+        left: 12px;
+        background: var(--bg-primary);
+        padding: 0 8px;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        color: var(--text-muted);
+      }
+
+      .light {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--bg-tertiary);
+        border: 2px solid var(--border-color);
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+      }
+
+      .light.active.green {
+        background: var(--accent-green);
+        border-color: var(--accent-green);
+        box-shadow:
+          0 0 20px var(--accent-green),
+          0 0 40px rgba(0, 255, 136, 0.3),
+          inset 0 0 10px rgba(255, 255, 255, 0.3);
+      }
+
+      .light.active.yellow {
+        background: var(--accent-yellow);
+        border-color: var(--accent-yellow);
+        box-shadow:
+          0 0 20px var(--accent-yellow),
+          0 0 40px rgba(255, 204, 0, 0.3),
+          inset 0 0 10px rgba(255, 255, 255, 0.3);
+      }
+
+      .light.active.red {
+        background: var(--accent-red);
+        border-color: var(--accent-red);
+        box-shadow:
+          0 0 20px var(--accent-red),
+          0 0 40px rgba(255, 51, 102, 0.3),
+          inset 0 0 10px rgba(255, 255, 255, 0.3);
+        animation: pulse-red 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse-red {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      .status-banner {
+        padding: 24px 32px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        margin-bottom: 60px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .status-banner::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+      }
+
+      .status-banner.operational::before {
+        background: var(--accent-green);
+      }
+      .status-banner.degraded::before {
+        background: var(--accent-yellow);
+      }
+      .status-banner.outage::before {
+        background: var(--accent-red);
+      }
+
+      .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .status-indicator.operational {
+        background: var(--accent-green);
+        box-shadow: 0 0 12px var(--accent-green);
+      }
+      .status-indicator.degraded {
+        background: var(--accent-yellow);
+        box-shadow: 0 0 12px var(--accent-yellow);
+      }
+      .status-indicator.outage {
+        background: var(--accent-red);
+        box-shadow: 0 0 12px var(--accent-red);
+        animation: pulse-red 2s ease-in-out infinite;
+      }
+
+      .status-text {
+        flex: 1;
+      }
+
+      .status-text h2 {
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          'Helvetica Neue',
+          sans-serif;
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .status-text p {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .timestamp {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-align: right;
+      }
+
+      .timestamp span {
+        display: block;
+      }
+
+      .services-section {
+        margin-bottom: 60px;
+      }
+
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .section-header h3 {
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          'Helvetica Neue',
+          sans-serif;
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+      }
+
+      .section-header::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, var(--border-color), transparent);
+      }
+
+      .services-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .service-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 24px;
+        padding: 20px 24px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        align-items: center;
+        transition: all 0.2s ease;
+      }
+
+      .service-row:hover {
+        background: var(--bg-tertiary);
+        border-color: var(--text-muted);
+      }
+
+      .service-name {
+        font-size: 14px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .service-name::before {
+        content: '//';
+        color: var(--text-muted);
+        font-weight: 400;
+      }
+
+      .service-detail {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+
+      .service-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        border: 1px solid;
+        min-width: 120px;
+        justify-content: center;
+      }
+
+      .service-status.operational {
+        color: var(--accent-green);
+        border-color: rgba(0, 255, 136, 0.3);
+        background: rgba(0, 255, 136, 0.05);
+      }
+
+      .service-status.degraded {
+        color: var(--accent-yellow);
+        border-color: rgba(255, 204, 0, 0.3);
+        background: rgba(255, 204, 0, 0.05);
+      }
+
+      .service-status.outage {
+        color: var(--accent-red);
+        border-color: rgba(255, 51, 102, 0.3);
+        background: rgba(255, 51, 102, 0.05);
+      }
+
+      .service-row.info-only {
+        opacity: 0.6;
+      }
+
+      .info-tag {
+        font-size: 10px;
+        color: var(--text-muted);
+        font-weight: 400;
+        font-style: italic;
+      }
+
+      .footer {
+        padding-top: 40px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 24px;
+      }
+
+      .footer-links a {
+        font-size: 12px;
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 0.2s ease;
+      }
+
+      .footer-links a:hover {
+        color: var(--accent-blue);
+      }
+
+      .footer-meta {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .loading-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 60px;
+        color: var(--text-muted);
+      }
+
+      .loading-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--accent-blue);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .error-state {
+        padding: 40px;
+        text-align: center;
+        color: var(--accent-red);
+        background: rgba(255, 51, 102, 0.05);
+        border: 1px solid rgba(255, 51, 102, 0.2);
+      }
+
+      @media (max-width: 600px) {
+        .header-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .traffic-light {
+          flex-direction: row;
+          justify-content: center;
+        }
+
+        .service-row {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        .service-status {
+          justify-content: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="noise-overlay"></div>
+
+    <div class="container">
+      <header>
+        <div class="header-grid">
+          <div class="logo-section">
+            <h1>Manyfold Platform</h1>
+            <div class="status-title">SYSTEM<br />STATUS</div>
+          </div>
+          <div class="traffic-light" id="trafficLight">
+            <div class="light red" id="lightRed"></div>
+            <div class="light yellow" id="lightYellow"></div>
+            <div class="light green" id="lightGreen"></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="status-banner" id="statusBanner">
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <span>Checking systems...</span>
+        </div>
+      </div>
+
+      <section class="services-section">
+        <div class="section-header">
+          <h3>Platform Layers</h3>
+        </div>
+        <div class="services-grid" id="servicesGrid">
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="footer-links">
+          <a href="/">Home</a>
+          <a href="/platform">Platform</a>
+        </div>
+        <div class="footer-meta">Auto-refresh: 30s</div>
+      </footer>
+    </div>
+
+    <script>
+      const API_URL = '/api/v1/health'
+
+      const statusMessages = {
+        operational: {
+          title: 'All Systems Operational',
+          desc: 'All platform layers are running normally'
+        },
+        degraded: {
+          title: 'Partial System Degradation',
+          desc: 'Some platform layers are experiencing issues'
+        },
+        outage: { title: 'Major System Outage', desc: 'Critical platform layers are unavailable' }
+      }
+
+      function mapStatus(healthStatus) {
+        if (healthStatus === 'healthy') return 'operational'
+        if (healthStatus === 'degraded') return 'degraded'
+        return 'outage'
+      }
+
+      function computeOverallStatus(data) {
+        const layers = [
+          data.infrastructure?.status,
+          data.network?.status,
+          data.cluster?.status,
+          data.platform?.status,
+          data.applications?.status
+        ]
+        if (layers.some((s) => s === 'unhealthy')) return 'outage'
+        if (layers.some((s) => s === 'degraded')) return 'degraded'
+        return 'operational'
+      }
+
+      function buildLayerDetail(name, data) {
+        if (name === 'Infrastructure') {
+          return `${data.healthyNodes}/${data.totalNodes} nodes ready`
+        }
+        if (name === 'Network') {
+          return `Cilium ${data.cilium?.status || 'unknown'}, Hubble ${data.hubble?.status || 'unknown'}`
+        }
+        if (name === 'Cluster') {
+          const cpStatus = data.controlPlaneHealthy ? 'healthy' : 'unhealthy'
+          return `Control plane ${cpStatus}, ${data.runningPods}/${data.totalPods} pods running`
+        }
+        if (name === 'Platform') {
+          const components = ['edge', 'identity', 'argocd', 'registry', 'observability']
+          return components
+            .filter((c) => data[c])
+            .map((c) => `${data[c].name}: ${data[c].status}`)
+            .join(' | ')
+        }
+        if (name === 'Pipelines') {
+          const rate = data.successRate != null ? data.successRate.toFixed(0) : '—'
+          return `${data.successfulRuns24h} OK, ${data.failedRuns24h} failed / ${data.totalRuns24h} runs (24h) | ${rate}% success rate`
+        }
+        if (name === 'Tenants') {
+          if (!data.apps || data.apps.length === 0) return 'No workloads'
+          return data.apps
+            .map(
+              (app) =>
+                `${app.name}: ${app.status}${app.latencyMs != null ? ` (${app.latencyMs}ms)` : ''}`
+            )
+            .join(' | ')
+        }
+        return ''
+      }
+
+      function updateTrafficLight(status) {
+        ;['red', 'yellow', 'green'].forEach((color) => {
+          document
+            .getElementById(`light${color.charAt(0).toUpperCase() + color.slice(1)}`)
+            .classList.remove('active')
+        })
+
+        if (status === 'operational') {
+          document.getElementById('lightGreen').classList.add('active', 'green')
+        } else if (status === 'degraded') {
+          document.getElementById('lightYellow').classList.add('active', 'yellow')
+        } else {
+          document.getElementById('lightRed').classList.add('active', 'red')
+        }
+      }
+
+      function updateStatusBanner(status, timestamp) {
+        const banner = document.getElementById('statusBanner')
+        const msg = statusMessages[status] || statusMessages.outage
+        const date = new Date(timestamp)
+
+        banner.className = `status-banner ${status}`
+        banner.innerHTML = `
+                <div class="status-indicator ${status}"></div>
+                <div class="status-text">
+                    <h2>${msg.title}</h2>
+                    <p>${msg.desc}</p>
+                </div>
+                <div class="timestamp">
+                    <span>${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span>${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                </div>
+            `
+      }
+
+      function updateLayersGrid(data) {
+        const grid = document.getElementById('servicesGrid')
+        // Same order as /stack and /status: the services that run on the
+        // stack first, then the four stack layers from the top down. The
+        // three public status surfaces show one picture, so a reader moving
+        // between them does not have to re-orient.
+        const layers = [
+          { name: 'Platform', data: data.platform },
+          { name: 'Pipelines', data: data.pipelines, infoOnly: true },
+          { name: 'Tenants', data: data.applications },
+          { name: 'Network', data: data.network },
+          { name: 'Cluster', data: data.cluster },
+          { name: 'Infrastructure', data: data.infrastructure }
+        ]
+
+        grid.innerHTML = layers
+          .map((layer) => {
+            const status = mapStatus(layer.data?.status)
+            const detail = buildLayerDetail(layer.name, layer.data || {})
+            const infoClass = layer.infoOnly ? ' info-only' : ''
+            const infoTag = layer.infoOnly ? ' <span class="info-tag">(info only)</span>' : ''
+
+            return `
+                    <div class="service-row${infoClass}">
+                        <div>
+                            <div class="service-name">${layer.name}${infoTag}</div>
+                            <div class="service-detail">${detail}</div>
+                        </div>
+                        <div class="service-status ${status}">
+                            <span>${status}</span>
+                        </div>
+                    </div>
+                `
+          })
+          .join('')
+      }
+
+      function showError(message) {
+        const banner = document.getElementById('statusBanner')
+        banner.className = 'status-banner outage'
+        banner.innerHTML = `<div class="error-state">${message}</div>`
+
+        updateTrafficLight('outage')
+      }
+
+      async function fetchStatus() {
+        try {
+          const response = await fetch(API_URL)
+          if (!response.ok) throw new Error('API returned ' + response.status)
+
+          const data = await response.json()
+          const overall = computeOverallStatus(data)
+
+          updateTrafficLight(overall)
+          updateStatusBanner(overall, data.timestamp)
+          updateLayersGrid(data)
+        } catch (error) {
+          console.error('Failed to fetch status:', error)
+          showError('Unable to connect to status API')
+        }
+      }
+
+      // Initial fetch
+      fetchStatus()
+
+      // Refresh every 30 seconds
+      setInterval(fetchStatus, 30000)
+    </script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+# Go-templating composition function. Used by the EgressRule Composition because it
+# renders a variable-length FQDN list into a CiliumNetworkPolicy toFQDNs array, which
+# function-patch-and-transform handles poorly.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata:
+  name: function-go-templating
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.12.1

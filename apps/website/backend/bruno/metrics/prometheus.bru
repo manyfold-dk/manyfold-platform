@@ -1,0 +1,29 @@
+meta {
+  name: Prometheus Metrics
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/q/metrics
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: text/plain
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("should contain JVM metrics", function() {
+    expect(res.body).to.contain("jvm_");
+  });
+}

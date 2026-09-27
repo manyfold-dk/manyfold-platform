@@ -1,0 +1,70 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: {{TENANT}}
+  namespace: argocd
+  labels:
+    manyfold.dk/tenant: {{TENANT}}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: {{TENANT}} tenant sandbox (namespace-scoped, operator-guardrailed)
+  sourceRepos:
+    - https://github.com/manyfold-dk/{{TENANT}}.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: {{TENANT}}-prod
+    - server: https://kubernetes.default.svc
+      namespace: {{TENANT}}-dev
+  # Namespace-scoped only: no cluster-scoped resources at all.
+  clusterResourceWhitelist: []
+  # Explicit allowlist of kinds the tenant may manage. NOTE the deliberate
+  # EXCLUSIONS: ResourceQuota, LimitRange, NetworkPolicy, CiliumNetworkPolicy,
+  # ServiceMonitor, and all RBAC kinds are absent on purpose.
+  # HTTPRoute is ALSO excluded for now: the shared cloud Gateway accepts routes from
+  # all namespaces (allowedRoutes.namespaces.from: All), so until a
+  # ValidatingAdmissionPolicy constrains HTTPRoute hostnames to tenant domains
+  # (ADR-0033 Blueprint DoD), allowing it would let a tenant attach routes to
+  # platform hostnames. Re-add with the hostname-admission boundary once the tenant
+  # has a domain.
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: PersistentVolumeClaim
+    - group: ''
+      kind: ServiceAccount
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: batch
+      kind: Job
+    - group: batch
+      kind: CronJob
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    # Tenant self-service infra claim, capability #1 (platform ADR-0033 Amendment
+    # 2026-06-05). Permitted only behind objectbucket-policy.yaml.tmpl.
+    - group: storage.manyfold.dk
+      kind: ObjectBucket
+    # Tenant self-service infra claim, capability #2 (egress, ADR-0041). Permitted only
+    # behind egressrule-policy.yaml.tmpl (valid FQDNs, 443 only, the tenant label). Raw
+    # CiliumNetworkPolicy stays excluded: the tenant only submits the EgressRule.
+    - group: network.manyfold.dk
+      kind: EgressRule
+  # Project-scoped role: tenant CI token can sync only this tenant's apps.
+  # NOTE: this role is inert until activated -- generate a CI token with
+  #   argocd proj role create-token {{TENANT}} deployer
+  # (or add a `g, <ci-identity>, proj:{{TENANT}}:deployer` binding to argocd-rbac-cm).
+  # Done in D2 when the tenant repo gains a CI pipeline; see tenant-onboarding.md.
+  roles:
+    - name: deployer
+      description: Project-scoped sync for {{TENANT}} tenant CI
+      policies:
+        - p, proj:{{TENANT}}:deployer, applications, get, {{TENANT}}/*, allow
+        - p, proj:{{TENANT}}:deployer, applications, sync, {{TENANT}}/*, allow

@@ -1,0 +1,53 @@
+# Website Backend ServiceAccount and RBAC
+#
+# Grants the backend permissions for:
+# - Health aggregation: read nodes and pods cluster-wide
+# - Remediation: delete pods and restart deployments
+#
+# Note: ClusterRole grants cluster-wide scope intentionally.
+# Application-level safety guards (cooldown, max-attempts) in
+# RemediationService constrain actual remediation actions.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: website-backend
+  namespace: website
+  labels:
+    app.kubernetes.io/name: website-backend
+    app.kubernetes.io/part-of: manyfold-platform
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: website-backend
+  labels:
+    app.kubernetes.io/name: website-backend
+    app.kubernetes.io/part-of: manyfold-platform
+rules:
+  # Health aggregation: read cluster state
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+  # Remediation: restart deployments
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: website-backend
+  labels:
+    app.kubernetes.io/name: website-backend
+    app.kubernetes.io/part-of: manyfold-platform
+subjects:
+  - kind: ServiceAccount
+    name: website-backend
+    namespace: website
+roleRef:
+  kind: ClusterRole
+  name: website-backend
+  apiGroup: rbac.authorization.k8s.io

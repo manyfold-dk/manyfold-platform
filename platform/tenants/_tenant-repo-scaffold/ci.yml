@@ -1,0 +1,161 @@
+# Tenant CI -- build & test the app, publish its image to GHCR, then bump the
+# GitOps deploy tag so ArgoCD syncs it. Copy this file into a TENANT repo as
+# `.github/workflows/ci.yml` and edit only the `env:` block and the `paths:`
+# trigger for that tenant (placeholders: <org>, <tenant>, <app>).
+#
+# Canonical source: the platform repository, platform/tenants/_tenant-repo-scaffold/ci.yml
+# Decision + rationale:  platform ADR-0037.
+#
+# ISOLATION (platform ADR-0033): this workflow depends ONLY on public GitHub
+# marketplace actions and the tenant repo's own contents. It never references
+# the platform installation's private repositories, so it is safe for an external tenant.
+#
+# END-STATE: this inline recipe is the interim. The `verify` + `image` jobs collapse into
+#   uses: manyfold-dk/estate-baseline/.github/workflows/quarkus-image-build-push.yml@<sha>
+# pinned by full commit id. estate-baseline is public, so this keeps the ISOLATION rule
+# above. The tag-bump `deploy` job stays tenant-side because it commits to the tenant's
+# own GitOps manifest; pass it the workflow's `image-digest`.
+#
+# RUNNERS: standard GitHub-hosted `ubuntu-latest` -- zero prerequisites. To adopt
+# the house Blacksmith convention, install the Blacksmith GitHub App on the
+# tenant repo, then swap `ubuntu-latest` -> `blacksmith-4vcpu-ubuntu-2404`,
+# `actions/checkout` -> `useblacksmith/checkout`, and
+# `docker/build-push-action` -> `useblacksmith/build-push-action` + a
+# `useblacksmith/setup-docker-builder` step. See ADR-0037 "Consequences".
+name: CI
+
+on:
+  push:
+    branches: [main]
+    # gitops/** is intentionally excluded: the deploy job's manifest commit must
+    # not retrigger CI (belt to the [skip ci] + GITHUB_TOKEN braces below).
+    # EDIT PER TENANT: APP_DIR below, plus this workflow file.
+    paths:
+      - "apps/<app>/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # deploy job commits the new image tag to main
+  packages: write # image job pushes to GHCR
+
+env:
+  # ---- EDIT PER TENANT ----------------------------------------------------
+  APP_DIR: apps/<app> # Maven module + Docker build context
+  DOCKERFILE: apps/<app>/Dockerfile # self-contained multi-stage build
+  # Org-owned GHCR package; auto-linked to this repo via the Dockerfile's
+  # `org.opencontainers.image.source` label. Lowercase, no tag here.
+  IMAGE_BASE: ghcr.io/<org>/<tenant>/<app>
+  # GitOps Deployment manifest whose inline `image:` line receives the new tag.
+  DEPLOY_MANIFEST: gitops/prod/<app>/deployment.yaml
+  # -------------------------------------------------------------------------
+
+jobs:
+  verify:
+    name: Build & test
+    runs-on: ubuntu-latest
+    # Ignore the deploy job's own automated commit so CI never loops on itself.
+    # (workflow_dispatch has no head_commit, so the guard passes for manual runs.)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!contains(github.event.head_commit.message, '[skip ci]') &&
+       !contains(github.event.head_commit.message, '[ci skip]'))
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compute image tag
+        id: meta
+        run: echo "image_tag=main-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Build and test
+        working-directory: ${{ env.APP_DIR }}
+        run: ./mvnw -B verify
+
+  image:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    needs: verify
+    # Publish only from main -- a workflow_dispatch on any other ref builds but
+    # never pushes/deploys unmerged code.
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # GITHUB_TOKEN (packages:write) creates the org package on first push,
+          # auto-links it to this repo, and inherits the repo's (private)
+          # visibility. No org PAT needed; see ADR-0037.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          file: ${{ env.DOCKERFILE }}
+          push: true
+          tags: ${{ env.IMAGE_BASE }}:${{ needs.verify.outputs.image_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Bump deploy tag
+    runs-on: ubuntu-latest
+    needs: [verify, image]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Update image tag, commit, push
+        env:
+          TAG: ${{ needs.verify.outputs.image_tag }}
+        run: |
+          set -eu
+          # Replace only the tag on the IMAGE_BASE line; preserve any trailing
+          # comment (e.g. "# pinned by digest at release"). '#' delimiter avoids
+          # escaping the slashes in the image path.
+          update_tag() {
+            sed -i -E "s#(image:[[:space:]]*${IMAGE_BASE}):[^[:space:]]+#\1:${TAG}#" "$DEPLOY_MANIFEST"
+          }
+          update_tag
+          if git diff --quiet -- "$DEPLOY_MANIFEST"; then
+            echo "Manifest already at ${TAG} -- nothing to commit."
+            exit 0
+          fi
+          # The GitHub Actions bot identity; replace it with the org's CI identity if it has one.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # [skip ci] + the GITHUB_TOKEN push (which does not retrigger workflows)
+          # together guarantee the deploy commit cannot loop.
+          MSG="chore(deploy): update ${IMAGE_BASE##*/} image tag to ${TAG} [skip ci]"
+          for attempt in 1 2 3; do
+            git add "$DEPLOY_MANIFEST"
+            git commit -m "$MSG" -m "Automated commit by the tenant CI workflow." || true
+            if git push origin HEAD:main; then
+              echo "Pushed deploy commit (attempt ${attempt})"
+              exit 0
+            fi
+            echo "Push failed; rebasing onto latest main (attempt ${attempt})..."
+            git fetch origin main
+            git reset --hard origin/main
+            update_tag
+          done
+          echo "Failed to push deploy commit after 3 attempts"
+          exit 1

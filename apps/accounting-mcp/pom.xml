@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>dk.manyfold</groupId>
+    <artifactId>manyfold-app-parent</artifactId>
+    <version>1</version>
+    <relativePath>../../build/parent/pom.xml</relativePath>
+  </parent>
+  <groupId>dk.manyfold.accounting</groupId>
+  <artifactId>accounting-mcp</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>Manyfold Accounting MCP</name>
+  <description>Dinero accounting integration (MCP connector + REST passthrough) for one organisation (ADR-0043)</description>
+
+  <properties>
+    <!-- Java 25 (maven.compiler.release), Quarkus 3.36.0 (quarkus.platform.*) and the
+         quarkus-bom import are inherited from the repository parent, build/parent/pom.xml. -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Lint: configuration and plugin versions come from the parent (build/lint/). -->
+    <manyfold.build.dir>${project.basedir}/../../build</manyfold.build.dir>
+    <manyfold.spotbugs.excludes>${manyfold.lint.dir}/spotbugs-exclude.xml,${project.basedir}/spotbugs-exclude.xml</manyfold.spotbugs.excludes>
+  </properties>
+
+  <dependencies>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-jackson</artifactId></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client-jackson</artifactId></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-hibernate-orm-panache</artifactId></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-jdbc-postgresql</artifactId></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-flyway</artifactId></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-scheduler</artifactId></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-oidc</artifactId></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-health</artifactId></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-micrometer-registry-prometheus</artifactId></dependency>
+    <!-- MCP server, Streamable HTTP transport (ADR-0043 / ADR-0018 pattern): exposes integration_get
+         and the named Dinero write tools at /mcp, delegating to the in-process IntegrationGateway that
+         also backs the REST passthrough. Quarkiverse extension, not in the quarkus-bom, so the version
+         is pinned here (Renovate-managed via the shared preset). -->
+    <dependency><groupId>io.quarkiverse.mcp</groupId><artifactId>quarkus-mcp-server-http</artifactId><version>1.13.1</version></dependency>
+
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-junit</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>io.rest-assured</groupId><artifactId>rest-assured</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-test-security</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-test-security-oidc</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>org.wiremock</groupId><artifactId>wiremock-standalone</artifactId><scope>test</scope></dependency>
+    <!-- McpAssured test client (McpStreamableTestClient) for the MCP protocol + tool-surface ITs. -->
+    <dependency><groupId>io.quarkiverse.mcp</groupId><artifactId>quarkus-mcp-server-test</artifactId><version>1.13.1</version><scope>test</scope></dependency>
+  </dependencies>
+
+  <build><plugins>
+    <plugin>
+      <!-- version + goals inherited from the repository parent's pluginManagement -->
+      <groupId>${quarkus.platform.group-id}</groupId><artifactId>quarkus-maven-plugin</artifactId>
+      <extensions>true</extensions>
+    </plugin>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+      <version>3.5.6</version>
+      <configuration>
+        <includes><include>**/*IT.java</include><include>**/*Test.java</include></includes>
+      </configuration>
+    </plugin>
+    <!-- Lint: Checkstyle, SpotBugs, PMD, Spotless (check only), all in verify. -->
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-checkstyle-plugin</artifactId></plugin>
+    <plugin><groupId>com.github.spotbugs</groupId><artifactId>spotbugs-maven-plugin</artifactId></plugin>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-pmd-plugin</artifactId></plugin>
+    <!-- This service keeps google-java-format (its style since the start) in place of the
+         parent's Eclipse profile; the check is the same: verify fails on a difference. -->
+    <plugin>
+      <groupId>com.diffplug.spotless</groupId><artifactId>spotless-maven-plugin</artifactId>
+      <configuration>
+        <java combine.self="override">
+          <googleJavaFormat/>
+          <removeUnusedImports/>
+        </java>
+      </configuration>
+    </plugin>
+  </plugins></build>
+</project>

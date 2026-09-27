@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - backend-api-dashboard.yaml
+  - infrastructure-health-dashboard.yaml
+  - mother-of-dashboards.yaml
+  - platform-health-dashboard.yaml
+  - slo-dashboard.yaml
+  - synthetic-dashboard.yaml
+  - velero-dashboard.yaml
+  - web-vitals-dashboard.yaml

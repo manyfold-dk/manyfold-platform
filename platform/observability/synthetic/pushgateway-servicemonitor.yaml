@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: synthetic-pushgateway
+  namespace: observability
+  labels:
+    app.kubernetes.io/part-of: manyfold-platform
+    app.kubernetes.io/component: synthetic-monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-pushgateway
+  endpoints:
+    - port: http
+      interval: 30s
+      honorLabels: true   # preserve front/journey/vantage pushed by clients

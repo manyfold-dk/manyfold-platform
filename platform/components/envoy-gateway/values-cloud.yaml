@@ -1,0 +1,22 @@
+# Envoy Gateway values for private admin domains.
+#
+# This installs only the control plane. The managed Envoy data plane is
+# customized through an EnvoyProxy resource that the installation defines
+# beside its private gateway.
+
+deployment:
+  replicas: 1
+  envoyGateway:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+  pod:
+    affinity: {}
+    tolerations: []
+
+service:
+  type: ClusterIP

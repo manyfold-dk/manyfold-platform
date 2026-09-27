@@ -1,0 +1,20 @@
+# Backend configuration for Cloudflare R2 (partial configuration)
+# Copy to backend.hcl (never committed) and fill in values.
+# Initialize with: tofu init -backend-config=backend.hcl
+#
+# The backend block in versions.tf carries only the state key, which names this
+# root. backend.hcl supplies everything that names the installation: the state
+# bucket, the R2 endpoint and the credentials.
+
+# State bucket (required: versions.tf has no bucket)
+bucket = "YOUR-STATE-BUCKET"
+
+# R2 endpoint URL (from <cloud-env-file> AWS_ENDPOINT_URL_S3). The form depends
+# on the state bucket's jurisdiction: an EU-jurisdiction bucket uses the form
+# below; a bucket without a jurisdiction uses
+# https://YOUR-ACCOUNT-ID.r2.cloudflarestorage.com instead.
+endpoint = "https://YOUR-ACCOUNT-ID.eu.r2.cloudflarestorage.com"
+
+# R2 credentials (from <cloud-env-file>)
+access_key = "YOUR-R2-ACCESS-KEY-ID"
+secret_key = "YOUR-R2-SECRET-ACCESS-KEY"

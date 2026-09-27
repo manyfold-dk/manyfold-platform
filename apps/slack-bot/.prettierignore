@@ -1,0 +1,6 @@
+dist/
+node_modules/
+pnpm-lock.yaml
+# Kubernetes manifests keep their own layout (JSON 6902 patches, comments).
+base/
+overlays/

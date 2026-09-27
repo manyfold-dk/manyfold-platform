@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Generic Argo CD configuration. An installation layers its own values on top in an
+# overlay of its own (canonical URL, OIDC provider, RBAC policy); the cluster setup
+# scripts apply that overlay, not this directory.
+resources:
+  - argocd-cm.yaml
+  - argocd-cmd-params-cm.yaml
+  - httproute.yaml
+
+# Patch repo-server for KSOPS (SOPS decryption) support
+patches:
+  - path: repo-server-patch.yaml
+    target:
+      kind: Deployment
+      name: argocd-repo-server

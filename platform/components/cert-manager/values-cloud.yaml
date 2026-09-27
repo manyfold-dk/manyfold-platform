@@ -1,0 +1,46 @@
+# Cert-Manager Cloud (Hetzner) Values
+#
+# Configuration for cert-manager on Hetzner Cloud with Cloudflare DNS.
+
+# Install CRDs as part of the Helm release
+crds:
+  enabled: true
+  keep: true
+
+# Enable Gateway API integration for certificate issuance from Gateway listeners
+config:
+  apiVersion: controller.config.cert-manager.io/v1alpha1
+  kind: ControllerConfiguration
+  enableGatewayAPI: true
+
+# Resource requests/limits for cloud environment
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 64Mi
+
+# Webhook configuration
+webhook:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+# CA injector configuration
+cainjector:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+
+# Enable Prometheus metrics - ServiceMonitor for Prometheus scraping
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true

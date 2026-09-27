@@ -1,0 +1,26 @@
+meta {
+  name: Readiness Probe
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/q/health/ready
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq UP
+}
+
+tests {
+  test("should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("should be ready", function() {
+    expect(res.body.status).to.equal("UP");
+  });
+}

@@ -1,0 +1,125 @@
+# accounting-mcp Deployment. ADR-0043.
+#
+# The overlay sets the image tag, the registry pull secret and the identity provider's issuer.
+# Ships config-gated: with the DINERO_* secret keys blank the service runs inert
+# (every read/write returns 503) until the personal-integration credentials are present.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounting-mcp
+  namespace: accounting-mcp
+  labels:
+    app: accounting-mcp
+    app.kubernetes.io/name: accounting-mcp
+    app.kubernetes.io/part-of: manyfold-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  # MUST stay 1, and do NOT add an HPA. The Dinero rate limiter (DineroRateLimiter, 55 req/min
+  # against the vendor's 60) is an in-JVM fixed-window bucket with no shared state, so every
+  # replica gets its OWN full allowance: 2 replicas silently means 110 req/min and Dinero starts
+  # returning 429. Nothing detects this at deploy time -- the pods look healthy and calls just
+  # begin failing under load. Scaling out requires moving the limiter to shared state (Redis or
+  # the existing Postgres) FIRST. See ADR-0043 and apps/accounting-mcp/README.md.
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: accounting-mcp
+  template:
+    metadata:
+      labels:
+        app: accounting-mcp
+    spec:
+      # PodSecurity "restricted". The image runs as USER 185 (numeric -- verified
+      # uid=185 at runtime), so runAsNonRoot is verifiable. A named USER would not
+      # be: the kubelet cannot resolve it and admission fails.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 185
+        fsGroup: 185
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: accounting-mcp
+          image: ghcr.io/manyfold-dk/manyfold-platform/accounting-mcp
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 8080
+              name: http
+          startupProbe:
+            httpGet:
+              path: /q/health/live
+              port: http
+            periodSeconds: 10
+            failureThreshold: 12
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          env:
+            # Write-ledger datasource (db-kind=postgresql is baked in at build time)
+            - name: DB_HOST
+              value: accounting-mcp-postgresql
+            - name: DB_NAME
+              value: accounting
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-mcp-postgresql-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-mcp-postgresql-credentials
+                  key: password
+            # OIDC (manyfold realm) + MCP resource audience
+            - name: OIDC_AUTH_SERVER_URL
+              value: https://idp.example.com/realms/example # the overlay sets the real issuer
+            - name: MCP_TOKEN_AUDIENCE
+              value: accounting-mcp
+            # Dinero personal-integration credentials (blank -> inert 503)
+            - name: DINERO_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: dinero-credentials
+                  key: client-id
+            - name: DINERO_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dinero-credentials
+                  key: client-secret
+            - name: DINERO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dinero-credentials
+                  key: api-key
+            - name: DINERO_ORGANIZATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: dinero-credentials
+                  key: organization-id
+          resources:
+            requests:
+              memory: "384Mi"
+              cpu: "250m"
+            limits:
+              memory: "768Mi"
+              cpu: "1500m"

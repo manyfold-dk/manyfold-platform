@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - apiserver-alerts.yaml
+  - argocd-alerts.yaml
+  - backend-alerts.yaml
+  - node-memory-alerts.yaml
+  - object-backup-alerts.yaml
+  - openbao-backup-alerts.yaml
+  - velero-alerts.yaml
+  - synthetic-alerts.yaml
+  # Not deployed: the site sends too few Web Vitals beacons for a 15-minute percentile
+  # (about twenty a week in 2026-09), and WebVitalsNoData would fire on every quiet hour.
+  # - web-vitals-alerts.yaml

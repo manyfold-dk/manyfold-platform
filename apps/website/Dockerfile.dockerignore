@@ -1,0 +1,11 @@
+# The website image builds from the repository root. Send only what it copies.
+*
+!build/parent/pom.xml
+!apps/website/frontend
+!apps/website/backend
+apps/website/frontend/node_modules
+apps/website/frontend/dist
+apps/website/frontend/test-results
+apps/website/frontend/playwright-report
+apps/website/backend/target
+apps/website/backend/bruno

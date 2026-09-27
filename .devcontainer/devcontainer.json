@@ -1,0 +1,137 @@
+{
+  "name": "Manyfold Platform",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".",
+    "args": {
+      "USER_UID": "${localEnv:USER_UID:501}",
+      "USER_GID": "${localEnv:USER_GID:20}"
+    }
+  },
+
+  // Configure tool-specific properties
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        //Clause
+        "anthropic.claude-code",
+
+        // Java/Quarkus
+        "redhat.java",
+        "redhat.vscode-quarkus",
+        "vscjava.vscode-java-pack",
+
+        // Vue/TypeScript/Frontend
+        "Vue.volar",
+        "Vue.vscode-typescript-vue-plugin",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+
+        // General
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "ms-azuretools.vscode-containers",
+        "redhat.vscode-yaml",
+        "eamodio.gitlens",
+        "techer.open-in-browser"
+      ],
+      "settings": {
+        "java.configuration.runtimes": [
+          {
+            "name": "JavaSE-25",
+            "path": "/usr/lib/jvm/temurin-25-jdk",
+            "default": true
+          }
+        ],
+        "java.jdt.ls.java.home": "/usr/lib/jvm/temurin-25-jdk",
+        "maven.executable.path": "/opt/maven/bin/mvn",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[java]": {
+          "editor.defaultFormatter": "redhat.java"
+        },
+        "[vue]": {
+          "editor.defaultFormatter": "Vue.volar"
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/usr/bin/zsh"
+          }
+        }
+      }
+    }
+  },
+
+  // Forward ports for backend and frontend
+  "forwardPorts": [
+    8080, // Quarkus backend
+    5173, // Vite frontend dev server
+    9229 // Node debugger
+  ],
+
+  "portsAttributes": {
+    "8080": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Frontend Dev Server",
+      "onAutoForward": "notify"
+    }
+  },
+
+  // Use named volumes to persist data across container rebuilds
+  "mounts": [
+    {
+      "source": "claude-config",
+      "target": "/home/vscode/.claude",
+      "type": "volume"
+    },
+    {
+      "source": "${localEnv:HOME}/.manyfold-worktrees",
+      "target": "/home/vscode/.manyfold-worktrees",
+      "type": "bind"
+    },
+    {
+      "source": "codex-config",
+      "target": "/home/vscode/.codex",
+      "type": "volume"
+    },
+    {
+      "source": "maven-repo",
+      "target": "/home/vscode/.m2/repository",
+      "type": "volume"
+    },
+    {
+      "source": "pnpm-store",
+      "target": "/home/vscode/.local/share/pnpm/store",
+      "type": "volume"
+    },
+    {
+      "source": "${localEnv:HOME}/.kube",
+      "target": "/home/vscode/.kube",
+      "type": "bind"
+    }
+  ],
+
+  // Disable SELinux labeling for bind mounts
+  "runArgs": ["--security-opt", "label=disable"],
+
+  // Ensure proper user ID mapping for file permissions
+  "containerUser": "vscode",
+  "updateRemoteUserUID": true,
+
+  // Use 'postCreateCommand' to run commands after the container is created
+  "postCreateCommand": "bash -c 'set -a && { [ ! -f /workspace/.env ] || source /workspace/.env; } && set +a && /workspace/.devcontainer/setup-git-credentials.sh && /workspace/.devcontainer/setup-worktree-paths.sh && echo \"\" && echo \"=== Development Environment ===\" && java -version && echo \"\" && mvn --version && echo \"\" && echo \"Node:\" $(node --version) && echo \"pnpm:\" $(pnpm --version) && echo \"Quarkus CLI:\" $(quarkus version 2>&1 | head -1) && echo \"Claude:\" $(claude --version) && echo \"kubectl:\" $(kubectl version --client --short 2>/dev/null || echo \"installed\") && echo \"\" && echo \"✅ Development environment ready!\"'",
+
+  // Set environment variables
+  "remoteEnv": {
+    "QUARKUS_HTTP_HOST": "0.0.0.0"
+  },
+
+  // Use 'forwardPorts' to make a list of ports inside the container available locally
+  "remoteUser": "vscode"
+
+  // Uncomment to connect as root instead
+  // "remoteUser": "root"
+}

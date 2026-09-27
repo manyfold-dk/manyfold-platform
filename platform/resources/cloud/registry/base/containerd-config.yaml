@@ -1,0 +1,48 @@
+# RBAC objects left over from the containerd-configuration DaemonSet
+#
+# The retired local cluster ran a privileged DaemonSet here that wrote a hosts.toml per
+# registry under /etc/containerd/certs.d on every node. The cloud overlay deleted that
+# DaemonSet and its script ConfigMap, because the Talos machine config sets the registry
+# mirrors on the cloud nodes (infrastructure/clusters/cloud/bootstrap/talos.tf). Both are
+# now gone from this base.
+#
+# Nothing uses the ServiceAccount, ClusterRole and ClusterRoleBinding below, but the cloud
+# registry Application deploys them today; removing them changes the cluster and is a
+# separate change.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: containerd-config
+  namespace: registry-system
+  labels:
+    app.kubernetes.io/name: containerd-config
+    app.kubernetes.io/part-of: registry
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: containerd-config
+  labels:
+    app.kubernetes.io/name: containerd-config
+    app.kubernetes.io/part-of: registry
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: containerd-config
+  labels:
+    app.kubernetes.io/name: containerd-config
+    app.kubernetes.io/part-of: registry
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: containerd-config
+subjects:
+  - kind: ServiceAccount
+    name: containerd-config
+    namespace: registry-system

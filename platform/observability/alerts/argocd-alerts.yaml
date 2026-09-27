@@ -1,0 +1,113 @@
+# Alerts for ArgoCD's sync machinery, as opposed to the workloads it deploys.
+#
+# Motivation: private-admin-gateway reported Synced *and* Healthy continuously
+# while no sync had completed since 2026-04-08. Every change to that app silently
+# failed to reach the cluster for four months, and nothing alerted, because both
+# status fields describe desired-vs-live state -- neither says the sync machinery
+# still works. See BEST-PRACTICES.md, "Replace=true Wedges Any Chart Whose Hooks
+# Are Not Jobs".
+#
+# Coverage note: two of the audit signals are NOT visible in ArgoCD's metrics and
+# are only caught by scripts/audit-argocd-sync.py --
+#   - operationState.phase stuck at Running with no finishedAt
+#   - an app with no deployment history at all
+# argocd_app_info does carry an `operation` label, but it proved useless as a
+# wedge detector: over the seven days spanning the real incident it produced two
+# samples, both after manual intervention. Do not build a rule on it.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: argocd-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: observability
+spec:
+  groups:
+    - name: argocd-sync.rules
+      rules:
+        - alert: ArgoCDAppNotConverging
+          # The signal that actually caught the real wedge. An app with automated
+          # sync that stays OutOfSync means ArgoCD wants to apply something and
+          # cannot -- a stuck operation, a failing hook, a rejected manifest.
+          #
+          # Firing only when a change is pending is the correct trigger: a wedged
+          # app with nothing to apply is doing no harm, and the moment someone
+          # commits a change it goes OutOfSync and stays there.
+          #
+          # 15m threshold: a normal sync converges in seconds (the private-admin
+          # -gateway sync took 25s once fixed), and ArgoCD's poll interval is ~3m,
+          # so 15m clears image-bump and helm-render latency comfortably. During
+          # the incident the app sat OutOfSync for 30m before it was reverted.
+          expr: |
+            argocd_app_info{sync_status="OutOfSync", autosync_enabled="true"} == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "ArgoCD app {{ $labels.name }} is not converging"
+            description: "{{ $labels.name }} has been OutOfSync for over 15 minutes with automated sync enabled, so a committed change is not reaching the cluster. Check for a non-terminal operation: kubectl -n argocd get application {{ $labels.name }} -o jsonpath='{.status.operationState.phase} {.status.operationState.startedAt}'"
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/cluster/argocd-app-not-converging.md"
+
+        - alert: ArgoCDAppSyncFailing
+          # dry_run="false" so preview/diff syncs never trigger this. The counter
+          # keeps the alert up for the length of the window after the last
+          # failure, which is deliberate -- a sync that fails and is retried into
+          # success still deserves to be seen.
+          expr: |
+            increase(argocd_app_sync_total{phase="Failed", dry_run="false"}[30m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "ArgoCD app {{ $labels.name }} had a failed sync"
+            description: "{{ $labels.name }} recorded at least one failed sync in the last 30 minutes. Inspect the operation message: kubectl -n argocd get application {{ $labels.name }} -o jsonpath='{.status.operationState.message}'"
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/cluster/argocd-app-not-converging.md"
+
+        - alert: ArgoCDAppTargetStateUnknown
+          # sync_status="Unknown" means ArgoCD could not render the desired state
+          # at all (ComparisonError): Git unreachable or unauthenticated, a broken
+          # kustomize/helm render, a missing path. The app keeps its last-synced
+          # workloads and reports Healthy, so no other rule here fires --
+          # OutOfSync needs a successful comparison first.
+          #
+          # Aggregated rather than per-app: a credential failure hits every app
+          # at once and would otherwise post one Slack message per app.
+          expr: |
+            count(argocd_app_info{sync_status="Unknown"} == 1) > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $value }} ArgoCD app(s) cannot load their target state"
+            description: "{{ $value }} app(s) have had sync status Unknown for over 15 minutes, so no commit reaches them. List them with their ComparisonError: kubectl -n argocd get applications -o json | jq -r '.items[] | select(.status.sync.status==\"Unknown\") | .metadata.name + \": \" + (.status.conditions[0].message // \"\")'"
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/cluster/argocd-app-not-converging.md"
+
+        - alert: ArgoCDGitAccessLost
+          # Most apps Unknown at once is not a render bug in one app -- it is
+          # ArgoCD losing read access to Git. 2026-09-22: the PAT in
+          # repo-creds-github-manyfold-dk was revoked and 63 of 66 apps went
+          # Unknown with nothing alerting; GitOps was frozen until a human looked.
+          expr: |
+            count(argocd_app_info{sync_status="Unknown"} == 1)
+              / count(argocd_app_info) > 0.5
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "ArgoCD has lost access to Git for most apps"
+            description: "Over half of all ArgoCD apps have sync status Unknown. Check the repo credential first: a revoked or expired PAT in the argocd repo-creds secret produces 'authentication required' in every app's ComparisonError."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/cluster/argocd-app-not-converging.md#git-access-lost"
+
+        - alert: ArgoCDAppDegraded
+          # Deliberately long: apps pass through Progressing during rollouts, and
+          # Degraded is only meaningful once it persists.
+          expr: |
+            argocd_app_info{health_status="Degraded"} == 1
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "ArgoCD app {{ $labels.name }} is Degraded"
+            description: "{{ $labels.name }} has reported Degraded health for over 30 minutes. This is about the deployed workload rather than the sync machinery -- check the app's resource tree for the failing child resource."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/cluster/argocd-app-not-converging.md"

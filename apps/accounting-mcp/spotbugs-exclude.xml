@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- accounting-mcp's own SpotBugs exclusions; the shared ones are in build/lint/. -->
+<FindBugsFilter
+    xmlns="https://github.com/spotbugs/filter/3.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+  <!-- ProxyResult hands the upstream body straight to the HTTP response and nothing mutates it;
+       a defensive copy would double every read of up to max-response-bytes. -->
+  <Match>
+    <Class name="dk.manyfold.accounting.integrations.ProxyResult"/>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+  </Match>
+  <!-- The executor records a failed vendor call on the ledger, then rethrows the caller's own
+       exception unchanged: the rethrow is the contract. -->
+  <Match>
+    <Class name="dk.manyfold.accounting.integrations.IntegrationWriteExecutor"/>
+    <Bug pattern="THROWS_METHOD_THROWS_RUNTIMEEXCEPTION"/>
+  </Match>
+</FindBugsFilter>

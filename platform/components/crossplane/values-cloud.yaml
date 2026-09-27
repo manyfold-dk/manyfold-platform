@@ -1,0 +1,47 @@
+# Crossplane Helm values - Cloud (Hetzner/Talos)
+resourcesCrossplane:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+resourcesRBACManager:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+# PodSecurity restricted.
+#
+# The chart already sets runAsUser/runAsGroup 65532, allowPrivilegeEscalation false and
+# readOnlyRootFilesystem on both containers. Three things are still missing, and each has to
+# go in a different place:
+#
+#   runAsNonRoot   -- the policy requires the flag itself. A non-zero runAsUser does not
+#                     satisfy it; the API server checks for runAsNonRoot: true explicitly.
+#   seccompProfile -- pod-level, and the chart ships podSecurityContext* as empty maps.
+#   capabilities   -- container-level. Helm deep-merges maps, so naming only `capabilities`
+#                     here keeps the chart's runAsUser/readOnlyRootFilesystem defaults.
+podSecurityContextCrossplane:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+podSecurityContextRBACManager:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContextCrossplane:
+  capabilities:
+    drop:
+      - ALL
+
+securityContextRBACManager:
+  capabilities:
+    drop:
+      - ALL

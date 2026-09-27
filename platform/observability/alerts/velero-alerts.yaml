@@ -1,0 +1,83 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: velero-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: observability
+spec:
+  groups:
+    - name: velero.rules
+      rules:
+        # Backup failed completely
+        - alert: VeleroBackupFailed
+          expr: |
+            increase(velero_backup_failure_total[1h]) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Velero backup failed
+            description: "A Velero backup has failed in the last hour. Check velero logs for details."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/velero-operations.md#troubleshooting"
+
+        # Backup partially failed (some items skipped)
+        - alert: VeleroBackupPartiallyFailed
+          expr: |
+            increase(velero_backup_partial_failure_total[1h]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Velero backup partially failed
+            description: "A Velero backup completed with partial failures in the last hour. Some resources may not have been backed up."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/velero-operations.md#troubleshooting"
+
+        # No recent daily backup
+        - alert: VeleroNoRecentBackup
+          expr: |
+            time() - velero_backup_last_successful_timestamp{schedule="daily-backup"} > 36 * 3600
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: No recent Velero daily backup
+            description: "No successful daily backup in the last 36 hours. The last successful backup was {{ $value | humanizeDuration }} ago."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/velero-operations.md#troubleshooting"
+
+        # Backup storage location unavailable
+        - alert: VeleroBackupStorageLocationUnavailable
+          expr: |
+            velero_backup_storage_location_available == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Velero backup storage location unavailable
+            description: "Backup storage location '{{ $labels.name }}' is unavailable. Backups cannot be created or restored."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/velero-operations.md#troubleshooting"
+
+        # Restore failed
+        - alert: VeleroRestoreFailed
+          expr: |
+            increase(velero_restore_failure_total[1h]) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Velero restore failed
+            description: "A Velero restore operation has failed in the last hour. Check velero logs for details."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/velero-operations.md#restore-procedures"
+
+        # Velero pod not running
+        - alert: VeleroPodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="velero", pod=~"velero-.*", condition="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Velero pod not ready
+            description: "Velero pod {{ $labels.pod }} has not been ready for 5 minutes. Backups will not run."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/velero-operations.md#troubleshooting"

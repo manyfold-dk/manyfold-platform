@@ -1,0 +1,53 @@
+# Alerts for the OpenBao Raft snapshot CronJob. Same three rule shapes as
+# object-backup-alerts.yaml (failed job, staleness, suspended), with distinct
+# alert names so promtool's duplicate-rule lint stays clean.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: openbao-backup-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: observability
+spec:
+  groups:
+    - name: openbao-backup.rules
+      rules:
+        - alert: OpenBaoRaftBackupJobFailed
+          # kube_job_status_failed counts failed *pod attempts*, so it stays > 0
+          # even when the Job ultimately succeeded after a retry (backoffLimit: 2).
+          # Gate on the Job NOT having reached Complete so we only fire on a
+          # genuinely failed Job (same rationale as object-backup-alerts.yaml).
+          expr: |
+            kube_job_status_failed{namespace="platform-ops", job_name=~"openbao-raft-backup.*"} > 0
+            unless on(namespace, job_name)
+            kube_job_complete{namespace="platform-ops", job_name=~"openbao-raft-backup.*", condition="true"} > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenBao Raft snapshot backup job failed
+            description: "The nightly OpenBao Raft snapshot CronJob has a failed Job. Check the take-snapshot and upload-to-r2 container logs."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/openbao-raft-restore.md"
+
+        - alert: OpenBaoRaftBackupStale
+          expr: |
+            time() - kube_cronjob_status_last_successful_time{namespace="platform-ops", cronjob="openbao-raft-backup"} > 108000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenBao Raft snapshot backup has not succeeded in more than 30 hours
+            description: "The nightly OpenBao Raft snapshot CronJob has missed its expected daily success window. Without fresh snapshots the OpenBao RPO grows unbounded."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/openbao-raft-restore.md"
+
+        - alert: OpenBaoRaftBackupSuspended
+          expr: |
+            kube_cronjob_spec_suspend{namespace="platform-ops", cronjob="openbao-raft-backup"} == 1
+          for: 24h
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenBao Raft snapshot CronJob is still suspended
+            description: "The OpenBao Raft snapshot CronJob has remained suspended for more than 24 hours."
+            runbook_url: "https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/disaster-recovery/openbao-raft-restore.md"

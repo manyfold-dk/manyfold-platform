@@ -1,0 +1,115 @@
+# Descheduler Cloud Values
+#
+# Rebalances pods across worker nodes when scheduling decisions become stale.
+# Runs as CronJob every 10 minutes; evicts the over-loaded node's recent
+# pods so kube-scheduler re-places them on the under-loaded node.
+#
+# LowNodeUtilization rebalances only when an under-utilized node can receive the
+# evictions: with every worker hot it correctly does nothing. See ADR-0031 (pod
+# rebalancing strategy).
+
+kind: CronJob
+schedule: "*/10 * * * *"
+
+# PodSecurity restricted.
+# The chart's container-level securityContext default already covers the other three
+# requirements (allowPrivilegeEscalation false, capabilities drop ALL, runAsNonRoot,
+# runAsUser 1000, readOnlyRootFilesystem). seccompProfile is the only gap, and the chart
+# ships podSecurityContext as an empty map, so it has to be set here.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+successfulJobsHistoryLimit: 1
+failedJobsHistoryLimit: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+cmdOptions:
+  v: 2
+
+deschedulerPolicyAPIVersion: "descheduler/v1alpha2"
+
+deschedulerPolicy:
+  profiles:
+    - name: default
+      pluginConfig:
+        - name: DefaultEvictor
+          args:
+            # Allow eviction of pods with EmptyDir (PodsWithLocalStorage)
+            # and pods with PVCs. PodsWithPVC is NOT a default protection,
+            # so it's omitted entirely from extraEnabled — listing it there
+            # would *enable* the protection and block the rebalance we want.
+            # Hetzner CSI handles detach/reattach across worker nodes in
+            # the same zone, so volume-bound pods (Prometheus, Tempo) can
+            # rebalance.
+            podProtections:
+              defaultDisabled:
+                - "PodsWithLocalStorage"
+            # Never evict Tekton build pods. They run multi-minute CI
+            # steps; evicting one mid-build destroys the work and fails
+            # the pipeline (it is not reschedulable progress). The
+            # DefaultEvictor gates every strategy, so this exempts Tekton
+            # pods from TopologySpread/LowNodeUtilization/RemoveDuplicates
+            # eviction alike. See ADR-0031.
+            labelSelector:
+              matchExpressions:
+                - key: tekton.dev/taskRun
+                  operator: DoesNotExist
+        - name: RemoveDuplicates
+        - name: RemovePodsHavingTooManyRestarts
+          args:
+            podRestartThreshold: 100
+            includingInitContainers: true
+        - name: RemovePodsViolatingNodeAffinity
+          args:
+            nodeAffinityType:
+              - requiredDuringSchedulingIgnoredDuringExecution
+        - name: RemovePodsViolatingNodeTaints
+        - name: RemovePodsViolatingInterPodAntiAffinity
+        - name: RemovePodsViolatingTopologySpreadConstraint
+        - name: LowNodeUtilization
+          args:
+            # Trigger when any node is below 30% (under-utilized) and any
+            # node is above 60% (target). Tuned tighter than defaults (20/50)
+            # so rebalancing kicks in before we're back at the 90%+ thrash
+            # threshold.
+            thresholds:
+              cpu: 30
+              memory: 30
+              pods: 30
+            targetThresholds:
+              cpu: 60
+              memory: 60
+              pods: 60
+      plugins:
+        balance:
+          enabled:
+            - RemoveDuplicates
+            - RemovePodsViolatingTopologySpreadConstraint
+            - LowNodeUtilization
+        deschedule:
+          enabled:
+            - RemovePodsHavingTooManyRestarts
+            - RemovePodsViolatingNodeTaints
+            - RemovePodsViolatingNodeAffinity
+            - RemovePodsViolatingInterPodAntiAffinity
+
+priorityClassName: system-cluster-critical
+
+# Bias scheduling onto worker nodes (kube-scheduler will pick whichever
+# worker has room; we don't want descheduler itself eating control-plane
+# capacity).
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist

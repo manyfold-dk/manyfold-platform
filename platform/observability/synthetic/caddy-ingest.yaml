@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: synthetic-ingest-caddy
+  namespace: observability
+data:
+  Caddyfile: |
+    {
+      admin off
+      auto_https off
+    }
+    :8080 {
+      @authed header Authorization "Bearer {$INGEST_TOKEN}"
+      handle @authed {
+        reverse_proxy prometheus-pushgateway.observability.svc:9091
+      }
+      handle {
+        respond "unauthorized" 401
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synthetic-ingest
+  namespace: observability
+  labels: { app.kubernetes.io/name: synthetic-ingest }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: synthetic-ingest } }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: synthetic-ingest }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: caddy
+          image: caddy:2.11.4-alpine
+          args: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+          ports: [{ containerPort: 8080, name: http }]
+          env:
+            - name: INGEST_TOKEN
+              valueFrom: { secretKeyRef: { name: synthetic-ingest-token, key: token } }
+            # Caddy writes to these; with readOnlyRootFilesystem they must be emptyDir mounts.
+            - { name: XDG_DATA_HOME, value: /data }
+            - { name: XDG_CONFIG_HOME, value: /config }
+          volumeMounts:
+            - { name: cfg, mountPath: /etc/caddy }
+            - { name: data, mountPath: /data }
+            - { name: config, mountPath: /config }
+            - { name: tmp, mountPath: /tmp }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            # caddy:2.x ships /usr/bin/caddy with setcap cap_net_bind_service=+ep
+            # (effective bit). Under allowPrivilegeEscalation:false (no_new_privs)
+            # the kernel refuses to exec a binary demanding an effective file-cap
+            # that isn't in the permitted set ("operation not permitted"), so the
+            # cap must be granted back even though we only listen on :8080.
+            capabilities: { drop: [ALL], add: [NET_BIND_SERVICE] }
+          resources: { requests: { cpu: 25m, memory: 32Mi }, limits: { memory: 64Mi } }
+      volumes:
+        - name: cfg
+          configMap: { name: synthetic-ingest-caddy }
+        - name: data
+          emptyDir: {}
+        - name: config
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synthetic-ingest
+  namespace: observability
+spec:
+  selector: { app.kubernetes.io/name: synthetic-ingest }
+  ports: [{ port: 8080, targetPort: http, name: http }]

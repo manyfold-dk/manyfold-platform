@@ -1,0 +1,43 @@
+# PodSecurity restricted for Crossplane-created package pods.
+#
+# Provider and Function pods are not created by the Crossplane Helm chart -- Crossplane
+# creates them itself from the package image, so chart values cannot reach them. A
+# DeploymentRuntimeConfig is the only lever.
+#
+# Crossplane auto-creates a DeploymentRuntimeConfig named `default` with an empty spec and
+# applies it to every package that does not set its own runtimeConfigRef. Declaring it here
+# adopts that object into Git so the profile cannot silently regress. Packages WITH an
+# explicit runtimeConfigRef do not inherit this -- provider-kubernetes carries its own copy.
+#
+# The container securityContext below deliberately restates values Crossplane already sets
+# (allowPrivilegeEscalation, privileged, runAsNonRoot, runAsUser/Group 2000). This is NOT
+# redundancy: verified against the live cluster, the DeploymentRuntimeConfig REPLACES the
+# generated container securityContext rather than merging into it. A first attempt that
+# listed only `capabilities` silently dropped allowPrivilegeEscalation: false from all four
+# package Deployments -- trading one violation for another. The pod-level block does merge
+# (runAsNonRoot/runAsUser/runAsGroup survive alongside the added seccompProfile).
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: default
+spec:
+  deploymentTemplate:
+    spec:
+      # Required by the schema; Crossplane generates the real selector.
+      selector: {}
+      template:
+        spec:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: package-runtime
+              securityContext:
+                allowPrivilegeEscalation: false
+                privileged: false
+                runAsNonRoot: true
+                runAsUser: 2000
+                runAsGroup: 2000
+                capabilities:
+                  drop:
+                    - ALL

@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<ruleset name="Manyfold PMD Rules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>PMD ruleset for the repository's Java applications</description>
+
+    <!-- Best practices -->
+    <rule ref="category/java/bestpractices.xml">
+        <!-- For API tests, checking status code and response body together is reasonable -->
+        <exclude name="UnitTestContainsTooManyAsserts"/>
+        <!-- RestAssured uses fluent assertions in .then() chains -->
+        <exclude name="UnitTestShouldIncludeAssert"/>
+        <!-- assertEquals already reports expected and actual; a message per assertion repeats them -->
+        <exclude name="UnitTestAssertionsShouldIncludeMessage"/>
+    </rule>
+
+    <!-- Error prone -->
+    <rule ref="category/java/errorprone.xml">
+        <!-- Duplicate literals for response codes, status strings are clear -->
+        <exclude name="AvoidDuplicateLiterals"/>
+        <!-- Some empty catch blocks are intentional (e.g., optional JVM features) -->
+        <exclude name="EmptyCatchBlock"/>
+        <!-- Numeric/string threshold literals are clear in context -->
+        <exclude name="AvoidLiteralsInIfCondition"/>
+        <!-- Record-style accessors (upstreamStatus() over the field upstreamStatus) are the idiom -->
+        <exclude name="AvoidFieldNameMatchingMethodName"/>
+        <!-- Nothing here is Java-serialized (SpotBugs' SE_NO_SERIALVERSIONID is excluded too) -->
+        <exclude name="MissingSerialVersionUID"/>
+    </rule>
+
+</ruleset>

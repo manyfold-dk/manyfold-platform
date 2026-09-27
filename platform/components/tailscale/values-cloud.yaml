@@ -1,0 +1,41 @@
+# Tailscale Kubernetes Operator Helm values for cloud cluster
+#
+# Reference: https://tailscale.com/kb/1236/kubernetes-operator
+#
+# Prerequisites:
+#   - operator-oauth secret in tailscale namespace (created by KSOPS)
+#     Contains: client_id, client_secret
+
+# OAuth credentials - left empty because we use existing secret
+# The chart will look for a secret named 'operator-oauth' by default
+oauth:
+  clientId: ""
+  clientSecret: ""
+
+# Operator pod configuration
+# Run on control-plane nodes (consistent with other platform components)
+operatorConfig:
+  logging: info
+  # The operator itself uses tag:k8s-operator
+  # ACL policy must have: "tag:k8s": ["tag:k8s-operator"]
+  # so the operator can assign tag:k8s to proxy devices
+  defaultTags:
+    - tag:k8s-operator
+
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+
+# Create ProxyClass for services
+proxyClass:
+  create: false  # We'll create custom ProxyClass resources separately

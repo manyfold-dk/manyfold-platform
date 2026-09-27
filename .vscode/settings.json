@@ -1,0 +1,12 @@
+{
+  "conventionalCommits.scopes": [
+    "frontend"
+  ],
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.configuration.updateBuildConfiguration": "interactive"
+  // Note: dev.containers.dockerPath is application-scoped
+  // It must be set in User Settings (Cmd+Shift+P → "Preferences: Open User Settings (JSON)")
+  // Add these to your user settings:
+  //   "dev.containers.dockerPath": "/opt/podman/bin/podman",
+  //   "dev.containers.dockerComposePath": "podman-compose"
+}

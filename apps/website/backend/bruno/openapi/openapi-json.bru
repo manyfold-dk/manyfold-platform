@@ -1,0 +1,30 @@
+meta {
+  name: OpenAPI Spec (JSON)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/q/openapi?format=json
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.openapi: isString
+}
+
+tests {
+  test("should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("should contain OpenAPI version", function() {
+    expect(res.body.openapi).to.be.a("string");
+  });
+
+  test("should contain the status endpoint", function() {
+    expect(res.body.paths).to.have.property("/api/v1/status");
+  });
+}

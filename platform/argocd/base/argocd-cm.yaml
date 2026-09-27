@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # The canonical external URL (url) and the OIDC provider (oidc.config) are
+  # installation values; an installation adds them in its own overlay, which the
+  # cluster setup scripts apply instead of this directory.
+
+  # Poll Git every 30s for changes (default is 3m)
+  # Webhooks are better for cloud deployments but polling works for local dev
+  timeout.reconciliation: "30s"
+
+  # Enable kustomize with KSOPS plugin for SOPS-encrypted secrets
+  # --enable-alpha-plugins: Required for KRM exec plugins
+  # --enable-exec: Required for executing external plugins like KSOPS
+  kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"
+
+  # Custom health check for Application resources (App-of-Apps pattern)
+  # This enables proper sync wave ordering between child Applications
+  resource.customizations: |
+    argoproj.io/Application:
+      health.lua: |
+        hs = {}
+        hs.status = "Progressing"
+        hs.message = ""
+        if obj.status ~= nil then
+          if obj.status.health ~= nil then
+            hs.status = obj.status.health.status
+            if obj.status.health.message ~= nil then
+              hs.message = obj.status.health.message
+            end
+          end
+        end
+        return hs
+
+  # ==========================================================================
+  # Ignore Differences Configuration
+  # ==========================================================================
+  # Prevents false OutOfSync status from controller-managed field drift.
+  # See: BEST-PRACTICES.md for details on why this is needed.
+
+  # Ignore preserveUnknownFields on CRDs (deprecated field stripped by K8s API)
+  # This field is removed by the API server but may exist in upstream manifests,
+  # causing perpetual OutOfSync status.
+  resource.customizations.ignoreDifferences.apiextensions.k8s.io_CustomResourceDefinition: |
+    jsonPointers:
+    - /spec/preserveUnknownFields
+
+  # Ignore fields managed by Kubernetes controllers on all resources
+  # Controllers like kube-controller-manager modify resources after apply,
+  # causing drift between Git state and live state.
+  resource.customizations.ignoreDifferences.all: |
+    managedFieldsManagers:
+    - kube-controller-manager
+    - tekton-pipelines-controller
+    - tekton-triggers-controller

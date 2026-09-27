@@ -1,0 +1,45 @@
+# ServiceMonitor for ArgoCD Application Controller metrics
+#
+# Scrapes metrics from ArgoCD Application Controller:
+# - argocd_app_info (application status)
+# - argocd_app_sync_total (sync operations)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argocd
+  namespace: observability
+  labels:
+    release: observability
+    app: argocd
+spec:
+  namespaceSelector:
+    matchNames:
+      - argocd
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-metrics
+  endpoints:
+    - port: metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+# ServiceMonitor for ArgoCD Server metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argocd-server
+  namespace: observability
+  labels:
+    release: observability
+    app: argocd-server
+spec:
+  namespaceSelector:
+    matchNames:
+      - argocd
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-server-metrics
+  endpoints:
+    - port: metrics
+      interval: 30s
+      scrapeTimeout: 10s

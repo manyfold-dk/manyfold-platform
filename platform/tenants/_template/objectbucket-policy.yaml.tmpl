@@ -1,0 +1,73 @@
+# Self-service guardrail for tenant-authored ObjectBucket claims (ADR-0033 Amendment
+# 2026-06-05). This is what makes storage.manyfold.dk/ObjectBucket safe to admit to the
+# {{TENANT}} AppProject allowlist -- the exact mechanism httproute-hostname-policy.yaml
+# uses for HTTPRoute. Operator-owned; the tenant cannot edit it.
+#
+# Constraints: bucketName must be {{TENANT}}-prefixed; provider must be hetzner -- the only
+# provider with a seeded tenant ProviderConfig (cloudflare-r2 is admitted once a tenant R2
+# ProviderConfig is seeded, same pattern; seaweedfs is local-only); Hetzner region must be
+# an EU location set explicitly (the XRD default "auto" fails this on purpose); Object Lock
+# (WORM) is operator-only; the manyfold.dk/tenant label is required; the connection secret
+# name must be {{TENANT}}-prefixed.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{TENANT}}-objectbucket
+  labels:
+    manyfold.dk/tenant: {{TENANT}}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["storage.manyfold.dk"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["objectbuckets"]
+  validations:
+    - expression: >-
+        has(object.spec.parameters) && has(object.spec.parameters.bucketName) &&
+        object.spec.parameters.bucketName.startsWith('{{TENANT}}-')
+      message: "ObjectBucket bucketName must start with '{{TENANT}}-'."
+      reason: Forbidden
+    - expression: >-
+        has(object.spec.parameters.provider) &&
+        object.spec.parameters.provider == 'hetzner'
+      message: "ObjectBucket provider must be 'hetzner' (the only provider with a seeded tenant ProviderConfig)."
+      reason: Forbidden
+    - expression: >-
+        object.spec.parameters.provider != 'hetzner' ||
+        (has(object.spec.parameters.region) &&
+         object.spec.parameters.region in ['hel1', 'fsn1', 'nbg1'])
+      message: "Hetzner ObjectBucket region must be an EU location set explicitly: hel1, fsn1, or nbg1."
+      reason: Forbidden
+    - expression: >-
+        !has(object.spec.parameters.lockRetentionDays) ||
+        object.spec.parameters.lockRetentionDays == 0
+      message: "Object Lock (lockRetentionDays > 0) is operator-provisioned only; tenant claims must not enable WORM."
+      reason: Forbidden
+    - expression: >-
+        has(object.metadata.labels) && 'manyfold.dk/tenant' in object.metadata.labels &&
+        object.metadata.labels['manyfold.dk/tenant'] == '{{TENANT}}'
+      message: "ObjectBucket must carry the label manyfold.dk/tenant: {{TENANT}}."
+      reason: Forbidden
+    - expression: >-
+        has(object.spec.writeConnectionSecretToRef) &&
+        object.spec.writeConnectionSecretToRef.name.startsWith('{{TENANT}}-')
+      message: "writeConnectionSecretToRef.name must start with '{{TENANT}}-'."
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{TENANT}}-objectbucket
+  labels:
+    manyfold.dk/tenant: {{TENANT}}
+spec:
+  policyName: {{TENANT}}-objectbucket
+  validationActions: ["Deny"]
+  matchResources:
+    # Enforce only in {{TENANT}} namespaces; operator-authored ObjectBuckets in
+    # other namespaces are unaffected.
+    namespaceSelector:
+      matchLabels:
+        manyfold.dk/tenant: {{TENANT}}

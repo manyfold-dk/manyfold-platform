@@ -1,0 +1,8 @@
+dist/
+node_modules/
+pnpm-lock.yaml
+test-results/
+playwright-report/
+# Published content: its front matter is read by a small parser (src/lib/decisions.ts), and
+# the prose is the author's own layout.
+src/content/

@@ -1,0 +1,15 @@
+# Velero namespace
+#
+# Velero requires its own namespace for backup/restore operations.
+# Uses privileged pod security because node-agent requires hostPath
+# volumes to access kubelet pods/plugins for file-level PVC backups.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: velero
+  labels:
+    app.kubernetes.io/part-of: manyfold-platform
+    app.kubernetes.io/component: backup
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged

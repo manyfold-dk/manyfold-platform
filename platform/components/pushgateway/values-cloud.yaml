@@ -1,0 +1,23 @@
+# Prometheus Pushgateway (cloud) -- metric sink for short-lived synthetic jobs
+# and the external Cloudflare probe Worker.
+#
+# Scraped by our own ServiceMonitor (synthetic-pushgateway) with honorLabels: true
+# so the front/journey/vantage labels pushed by clients are preserved.
+#
+# Pin the resource name so the Service is exactly prometheus-pushgateway.observability.svc
+# (the ArgoCD app/Helm release is named "pushgateway", which would otherwise produce
+# the service "pushgateway-prometheus-pushgateway"). Pushers reference the stable name.
+fullnameOverride: prometheus-pushgateway
+serviceAccount:
+  create: true
+resources:
+  requests: { cpu: 25m, memory: 32Mi }
+  limits: { memory: 64Mi }
+# Persistence stays disabled (default, in-memory). Stale "up=1" from a dead
+# pusher is handled by the synthetic_run_timestamp_seconds freshness metric and
+# the SyntheticStale alert; each journey re-PUTs (replaces) its group on every run.
+serviceMonitor:
+  enabled: false   # we define our own with honorLabels below
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534

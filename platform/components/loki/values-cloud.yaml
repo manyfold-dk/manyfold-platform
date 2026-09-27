@@ -1,0 +1,75 @@
+# Loki Cloud (Hetzner) Values
+#
+# Cloud-specific configuration:
+# - 15-day retention (vs 48h local)
+# - SingleBinary mode with PVC storage
+# - Higher resources for production workloads
+
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 200m
+    limits:
+      memory: 2Gi
+  persistence:
+    enabled: true
+    storageClass: hcloud-volumes
+    size: 20Gi
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  storage:
+    type: filesystem
+  limits_config:
+    retention_period: 360h  # 15 days
+    max_query_series: 5000
+    max_query_parallelism: 16
+  compactor:
+    retention_enabled: true
+    retention_delete_delay: 2h
+    delete_request_store: filesystem
+    working_directory: /var/loki/compactor
+
+# Disable distributed components
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+# Disable gateway for simplicity
+gateway:
+  enabled: false
+
+# Disable caches (single-node deployment)
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Test mode disabled
+test:
+  enabled: false
+
+# Monitoring - use existing Prometheus
+monitoring:
+  selfMonitoring:
+    enabled: false
+  lokiCanary:
+    enabled: false

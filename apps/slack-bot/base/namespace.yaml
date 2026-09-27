@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-ops
+  labels:
+    app.kubernetes.io/part-of: manyfold-platform
+    # PodSecurity: advisory only. Every workload this repo declares in platform-ops
+    # is restricted-compliant as of 2026-08-23, but `enforce` also governs pods the
+    # repo does not declare -- Velero restore helpers and any ad-hoc debug pod an
+    # operator reaches for mid-incident. warn/audit makes violations visible without
+    # blocking them; promoting to `enforce` is a deliberate operator step.
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

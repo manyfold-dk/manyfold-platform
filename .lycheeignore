@@ -1,0 +1,7 @@
+# The site's published decisions link to each other by route (/decisions/<slug>), which the
+# Vue router serves; they are not files in this repository.
+^file://.*/decisions/[0-9]{4}-[a-z0-9-]+(#.*)?$
+# The document templates carry placeholder links an author replaces; they name no file.
+^file://.*/docs/templates/link$
+^file://.*/docs/docs/adr/0001-topic\.md$
+^file://.*/docs/other-component/README\.md$

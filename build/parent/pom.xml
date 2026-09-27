@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Parent of this repository's Quarkus applications (website backend, accounting-mcp).
+
+    It lives in the repository and the applications reference it by relativePath, so a fresh
+    clone builds with Maven Central alone: no private registry, no token. The image builds
+    use the repository root as their Docker context for the same reason.
+
+    Its pins match the estate's shared parent (Java 25, the Quarkus platform version); the
+    conformance check reads maven.compiler.release here like in any pom.xml, and Renovate
+    keeps the versions current.
+  -->
+  <groupId>dk.manyfold</groupId>
+  <artifactId>manyfold-app-parent</artifactId>
+  <version>1</version>
+  <packaging>pom</packaging>
+
+  <name>Manyfold application parent</name>
+  <description>Java 25, the Quarkus platform BOM, and the shared build, lint and test configuration.</description>
+
+  <properties>
+    <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
+    <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
+    <quarkus.platform.version>3.36.0</quarkus.platform.version>
+    <maven.compiler.release>25</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Shared test dependencies the Quarkus BOM does not cover. -->
+    <wiremock.version>3.9.1</wiremock.version>
+
+    <!-- Lint. The configuration lives in build/lint/; each application sets manyfold.build.dir
+         to this directory's parent, relative to itself, since a parent cannot know where its
+         children are. All checks run in `verify` and none rewrites a file: format with
+         `mvn spotless:apply`. -->
+    <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
+    <checkstyle.version>13.8.0</checkstyle.version>
+    <spotbugs-plugin.version>4.10.3.0</spotbugs-plugin.version>
+    <pmd-plugin.version>3.28.0</pmd-plugin.version>
+    <spotless-plugin.version>3.8.0</spotless-plugin.version>
+    <manyfold.lint.dir>${manyfold.build.dir}/lint</manyfold.lint.dir>
+    <!-- An application appends its own exclusions: ,${project.basedir}/spotbugs-exclude.xml -->
+    <manyfold.spotbugs.excludes>${manyfold.lint.dir}/spotbugs-exclude.xml</manyfold.spotbugs.excludes>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>${quarkus.platform.group-id}</groupId>
+        <artifactId>${quarkus.platform.artifact-id}</artifactId>
+        <version>${quarkus.platform.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.wiremock</groupId>
+        <artifactId>wiremock-standalone</artifactId>
+        <version>${wiremock.version}</version>
+        <scope>test</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <!-- pluginManagement, not plugins: this pom-packaging parent must not run Quarkus goals
+         itself. Each application declares the plugins bare (groupId, artifactId, and
+         extensions for Quarkus) and inherits their versions, configuration and executions. -->
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>${quarkus.platform.group-id}</groupId>
+          <artifactId>quarkus-maven-plugin</artifactId>
+          <version>${quarkus.platform.version}</version>
+          <extensions>true</extensions>
+          <executions>
+            <execution>
+              <goals>
+                <goal>build</goal>
+                <goal>generate-code</goal>
+                <goal>generate-code-tests</goal>
+                <goal>native-image-agent</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-checkstyle-plugin</artifactId>
+          <version>${checkstyle-plugin.version}</version>
+          <dependencies>
+            <dependency>
+              <groupId>com.puppycrawl.tools</groupId>
+              <artifactId>checkstyle</artifactId>
+              <version>${checkstyle.version}</version>
+            </dependency>
+          </dependencies>
+          <configuration>
+            <configLocation>${manyfold.lint.dir}/checkstyle.xml</configLocation>
+            <consoleOutput>true</consoleOutput>
+            <failsOnError>true</failsOnError>
+            <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          </configuration>
+          <executions>
+            <execution>
+              <id>checkstyle-check</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>com.github.spotbugs</groupId>
+          <artifactId>spotbugs-maven-plugin</artifactId>
+          <version>${spotbugs-plugin.version}</version>
+          <configuration>
+            <effort>Max</effort>
+            <threshold>Low</threshold>
+            <xmlOutput>true</xmlOutput>
+            <excludeFilterFile>${manyfold.spotbugs.excludes}</excludeFilterFile>
+          </configuration>
+          <executions>
+            <execution>
+              <id>spotbugs-check</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-pmd-plugin</artifactId>
+          <version>${pmd-plugin.version}</version>
+          <configuration>
+            <failOnViolation>true</failOnViolation>
+            <printFailingErrors>true</printFailingErrors>
+            <includeTests>true</includeTests>
+            <rulesets>
+              <ruleset>${manyfold.lint.dir}/pmd-ruleset.xml</ruleset>
+            </rulesets>
+          </configuration>
+          <executions>
+            <execution>
+              <id>pmd-check</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>${spotless-plugin.version}</version>
+          <configuration>
+            <java>
+              <eclipse>
+                <version>4.30</version>
+                <file>${manyfold.lint.dir}/eclipse-formatter.xml</file>
+              </eclipse>
+              <removeUnusedImports/>
+              <importOrder>
+                <order>java,jakarta,io.quarkus,io.smallrye,dk.manyfold,</order>
+              </importOrder>
+            </java>
+          </configuration>
+          <executions>
+            <execution>
+              <id>spotless-check</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

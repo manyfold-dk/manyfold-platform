@@ -1,0 +1,55 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: web-vitals-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: observability
+spec:
+  groups:
+    - name: web-vitals.rules
+      rules:
+        # LCP Poor (> 4000ms at p75 for 15 minutes)
+        - alert: WebVitalsLCPPoor
+          expr: |
+            histogram_quantile(0.75, sum by (le) (rate(web_vitals_lcp_milliseconds_bucket{job="website-backend"}[15m]))) > 4000
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Web Vitals LCP is poor
+            description: "LCP p75 is {{ $value | printf \"%.0f\" }}ms (threshold: 4000ms). Users are experiencing slow page loads."
+
+        # INP Poor (> 500ms at p75 for 15 minutes)
+        - alert: WebVitalsINPPoor
+          expr: |
+            histogram_quantile(0.75, sum by (le) (rate(web_vitals_inp_milliseconds_bucket{job="website-backend"}[15m]))) > 500
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Web Vitals INP is poor
+            description: "INP p75 is {{ $value | printf \"%.0f\" }}ms (threshold: 500ms). Users are experiencing slow interactions."
+
+        # CLS Poor (> 0.25 at p75 for 15 minutes)
+        - alert: WebVitalsCLSPoor
+          expr: |
+            histogram_quantile(0.75, sum by (le) (rate(web_vitals_cls_bucket{job="website-backend"}[15m]))) > 0.25
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Web Vitals CLS is poor
+            description: "CLS p75 is {{ $value | printf \"%.3f\" }} (threshold: 0.25). Users are experiencing layout shifts."
+
+        # No Web Vitals data for 1 hour
+        - alert: WebVitalsNoData
+          expr: |
+            absent(web_vitals_lcp_milliseconds_count{job="website-backend"}) == 1
+          for: 1h
+          labels:
+            severity: info
+          annotations:
+            summary: No Web Vitals data received
+            description: "No Web Vitals data has been received for the past hour. Check if frontend collection is working."

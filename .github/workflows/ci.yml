@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-check:
+    # The publication gate, shapes and scanners only: the name list is private to the estate and
+    # never enters this repository. The gate and its pinned scanners come from estate-baseline.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: manyfold-dk/estate-baseline
+          ref: f1c7ec4fb6017fb008826dd66298133afecacf9d
+          path: .estate-baseline
+          persist-credentials: false
+      - uses: manyfold-dk/estate-baseline/.github/actions/install-scanners@f1c7ec4fb6017fb008826dd66298133afecacf9d
+      - run: |
+          set -eu
+          mv .estate-baseline "$RUNNER_TEMP/estate-baseline"
+          "$RUNNER_TEMP/estate-baseline/scripts/publish-check/publish-check.sh" . --names none --allow .publish-allow.tsv
+
+  secret-scan:
+    uses: manyfold-dk/estate-baseline/.github/workflows/secret-scan.yml@f1c7ec4fb6017fb008826dd66298133afecacf9d
+
+  docs-link-check:
+    uses: manyfold-dk/estate-baseline/.github/workflows/docs-link-check.yml@f1c7ec4fb6017fb008826dd66298133afecacf9d
+
+  render:
+    # Every Kustomize directory must build.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - run: |
+          set -eu
+          status=0
+          while IFS= read -r k; do
+            dir=$(dirname "$k")
+            if ! kubectl kustomize "$dir" > /dev/null; then
+              echo "::error file=$k::kustomize build failed"
+              status=1
+            fi
+          done < <(find . -name kustomization.yaml -not -path './.git/*' | sort)
+          exit $status
+
+  tofu-modules:
+    # Every OpenTofu module must be formatted, validate, and pass its tests (providers mocked).
+    # The bootstrap roots are formatted and validate without their backend.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: 1.11.7
+          tofu_wrapper: false
+      - run: |
+          set -eu
+          for m in infrastructure/modules/*/ infrastructure/clusters/*/bootstrap/; do
+            echo "::group::$m"
+            tofu -chdir="$m" fmt -check -recursive
+            tofu -chdir="$m" init -backend=false -input=false
+            tofu -chdir="$m" validate
+            if [ -d "${m}tests" ]; then tofu -chdir="$m" test; fi
+            echo "::endgroup::"
+          done
+
+  maven:
+    # The shared parent and lint rules resolve from Maven Central alone.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - run: mvn -B -ntp -f build/parent/pom.xml validate
+
+  node-apps:
+    # Each TypeScript application's own lint (non-mutating), unit tests and build.
+    name: node-apps (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dir: apps/slack-bot
+            test: test
+          - dir: apps/synthetic
+            test: test
+          - dir: apps/website/frontend
+            test: test:unit
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
+        with:
+          version: "10.28.0"
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: ${{ matrix.dir }}/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm run "$TEST_SCRIPT"
+        env:
+          TEST_SCRIPT: ${{ matrix.test }}
+      - run: pnpm build
+
+  java-apps:
+    # Each Java application's tests and lint (Checkstyle, SpotBugs, PMD, format check), built
+    # against the parent in build/parent. Dev Services start the databases the tests need.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [accounting-mcp, website/backend]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - run: mvn -B -ntp verify
+        working-directory: apps/${{ matrix.app }}

@@ -1,0 +1,44 @@
+# provider-kubernetes renders in-cluster resources for the tenant self-service egress
+# capability (#2, ADR-0041). The DeploymentRuntimeConfig pins a stable ServiceAccount
+# name so the scoped CiliumNetworkPolicy RBAC (kubernetes-provider-rbac.yaml) can bind
+# to it. Crossplane v2 namespaced APIs live under kubernetes.m.crossplane.io.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-kubernetes
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v1.2.1
+  runtimeConfigRef:
+    name: provider-kubernetes
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-kubernetes
+spec:
+  serviceAccountTemplate:
+    metadata:
+      name: provider-kubernetes
+  # provider-kubernetes sets its own runtimeConfigRef, so it does NOT inherit the
+  # `default` DeploymentRuntimeConfig -- the restricted profile has to be repeated here.
+  # See deployment-runtime-config-default.yaml for why the container block restates the
+  # values Crossplane already sets (this template replaces, it does not merge).
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: package-runtime
+              securityContext:
+                allowPrivilegeEscalation: false
+                privileged: false
+                runAsNonRoot: true
+                runAsUser: 2000
+                runAsGroup: 2000
+                capabilities:
+                  drop:
+                    - ALL

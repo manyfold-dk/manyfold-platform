@@ -1,0 +1,9 @@
+version=agent-2.2.0
+profile=app
+codex_discovery=legacy
+source_commit=2daa15d09454049e1f419a2ba33063564761a595
+source_dirty=false
+overlay_commit=none
+overlay_tree=none
+overlay_dirty=false
+vendored_at=2026-09-27T12:07:50Z

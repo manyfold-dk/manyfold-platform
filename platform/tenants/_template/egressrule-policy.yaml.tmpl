@@ -1,0 +1,55 @@
+# Self-service guardrail for tenant-authored EgressRule claims (capability #2, ADR-0041).
+# This is what makes network.manyfold.dk/EgressRule safe to admit to the {{TENANT}}
+# AppProject allowlist -- the same mechanism objectbucket-policy.yaml uses. Operator-owned;
+# the tenant cannot edit it. Constraints: at least one FQDN; every FQDN a valid DNS name
+# with no wildcards; ports (if set) 443 only; the manyfold.dk/tenant label is required.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{TENANT}}-egressrule
+  labels:
+    manyfold.dk/tenant: {{TENANT}}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["network.manyfold.dk"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["egressrules"]
+  validations:
+    - expression: >-
+        has(object.spec.parameters) && has(object.spec.parameters.fqdns) &&
+        size(object.spec.parameters.fqdns) > 0
+      message: "EgressRule must list at least one FQDN in spec.parameters.fqdns."
+      reason: Forbidden
+    - expression: >-
+        object.spec.parameters.fqdns.all(f,
+          f.matches('^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$'))
+      message: "Each FQDN must be a valid DNS name with no wildcards."
+      reason: Forbidden
+    - expression: >-
+        !has(object.spec.parameters.ports) ||
+        object.spec.parameters.ports.all(p, p == 443)
+      message: "EgressRule ports must be 443 only (TLS)."
+      reason: Forbidden
+    - expression: >-
+        has(object.metadata.labels) && 'manyfold.dk/tenant' in object.metadata.labels &&
+        object.metadata.labels['manyfold.dk/tenant'] == '{{TENANT}}'
+      message: "EgressRule must carry the label manyfold.dk/tenant: {{TENANT}}."
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{TENANT}}-egressrule
+  labels:
+    manyfold.dk/tenant: {{TENANT}}
+spec:
+  policyName: {{TENANT}}-egressrule
+  validationActions: ["Deny"]
+  matchResources:
+    # Enforce only in {{TENANT}} namespaces (they carry manyfold.dk/tenant: {{TENANT}}).
+    namespaceSelector:
+      matchLabels:
+        manyfold.dk/tenant: {{TENANT}}

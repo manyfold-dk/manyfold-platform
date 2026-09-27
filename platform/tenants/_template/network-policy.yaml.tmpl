@@ -1,0 +1,112 @@
+# Tenant baseline network policy. Each namespace's {{TENANT}}-allow-baseline policy both
+# (a) puts all tenant pods into deny-by-default in both directions via Cilium's
+# enableDefaultDeny, and (b) carries the explicit baseline allows (DNS, intra-tenant,
+# gateway/host ingress, scrape).
+#
+# A standalone default-deny CNP is intentionally NOT used: Cilium's agent rejects a
+# policy whose only rule fields are empty lists ("rule must have at least one of
+# Ingress, IngressDeny, Egress, EgressDeny" -> Valid=False), and the CRD rejects
+# enableDefaultDeny with no rule field at all (anyOf). enableDefaultDeny therefore
+# lives on this allow-baseline policy, which has real rules and validates cleanly.
+# Verified Valid=True on Cilium 1.19.1.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{TENANT}}-allow-baseline
+  namespace: {{TENANT}}-prod
+  labels:
+    manyfold.dk/tenant: {{TENANT}}
+spec:
+  endpointSelector: {}
+  enableDefaultDeny:
+    ingress: true
+    egress: true
+  egress:
+    # DNS to kube-dns. L7 dns rules enable Cilium's DNS proxy to snoop answers, which is
+    # required for any toFQDNs rule (operator-owned external egress + tenant EgressRule
+    # CNPs, capability #2) to enforce. See docs/adr/0041-tenant-self-service-egress.md.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+    # intra-tenant traffic: any pod labelled manyfold.dk/tenant={{TENANT}}
+    # (spans {{TENANT}}-prod + {{TENANT}}-dev -- workloads must set this pod label)
+    - toEndpoints:
+        - matchLabels:
+            manyfold.dk/tenant: {{TENANT}}
+  ingress:
+    # ingress from the shared gateway + host/node entities
+    - fromEntities:
+        - host
+        - remote-node
+        - ingress
+    # intra-tenant traffic: any pod labelled manyfold.dk/tenant={{TENANT}}
+    # (spans {{TENANT}}-prod + {{TENANT}}-dev -- workloads must set this pod label)
+    - fromEndpoints:
+        - matchLabels:
+            manyfold.dk/tenant: {{TENANT}}
+    # operator-owned: allow Prometheus (observability ns) to scrape /metrics
+    # (required for the ServiceMonitor in Task 11 to function under default-deny)
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: prometheus
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{TENANT}}-allow-baseline
+  namespace: {{TENANT}}-dev
+  labels:
+    manyfold.dk/tenant: {{TENANT}}
+spec:
+  endpointSelector: {}
+  enableDefaultDeny:
+    ingress: true
+    egress: true
+  egress:
+    # DNS to kube-dns. L7 dns rules enable Cilium's DNS proxy to snoop answers, which is
+    # required for any toFQDNs rule (operator-owned external egress + tenant EgressRule
+    # CNPs, capability #2) to enforce. See docs/adr/0041-tenant-self-service-egress.md.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+    # intra-tenant traffic: any pod labelled manyfold.dk/tenant={{TENANT}}
+    # (spans {{TENANT}}-prod + {{TENANT}}-dev -- workloads must set this pod label)
+    - toEndpoints:
+        - matchLabels:
+            manyfold.dk/tenant: {{TENANT}}
+  ingress:
+    - fromEntities:
+        - host
+        - remote-node
+        - ingress
+    # intra-tenant traffic: any pod labelled manyfold.dk/tenant={{TENANT}}
+    # (spans {{TENANT}}-prod + {{TENANT}}-dev -- workloads must set this pod label)
+    - fromEndpoints:
+        - matchLabels:
+            manyfold.dk/tenant: {{TENANT}}
+    # operator-owned: allow Prometheus (observability ns) to scrape /metrics
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: prometheus
