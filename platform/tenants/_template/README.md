@@ -22,6 +22,10 @@ operator context.
   - [Step 3: Register the Landing-Zone Application in ArgoCD](#step-3-register-the-landing-zone-application-in-argocd)
   - [Step 4: Wire Shared Platform Services](#step-4-wire-shared-platform-services)
   - [Step 5: Ingress / DNS / TLS (deferred)](#step-5-ingress--dns--tls-deferred)
+- [Tenant ObjectBucket Claims](#tenant-objectbucket-claims)
+  - [Why importExisting Must Be false](#why-importexisting-must-be-false)
+  - [Re-adopting an Existing Bucket](#re-adopting-an-existing-bucket)
+  - [Tenants Rendered Before the Rule](#tenants-rendered-before-the-rule)
 - [Validation](#validation)
 
 ## Template Parameters
@@ -69,7 +73,7 @@ resources are added:
 | `network-policy.yaml.tmpl` | `network-policy.yaml` | Default-deny + baseline allows (CiliumNetworkPolicy) |
 | `appproject.yaml.tmpl` | `appproject.yaml` | ArgoCD AppProject with namespace boundary |
 | `applicationset.yaml.tmpl` | `applicationset.yaml` | Operator-owned ApplicationSet (git generator) |
-| `objectbucket-policy.yaml.tmpl` | `objectbucket-policy.yaml` | ValidatingAdmissionPolicy guard-railing tenant `ObjectBucket` self-service claims (ADR-0033 Amendment 2026-06-05) |
+| `objectbucket-policy.yaml.tmpl` | `objectbucket-policy.yaml` | ValidatingAdmissionPolicy guard-railing tenant `ObjectBucket` self-service claims (ADR-0033 Amendment 2026-06-05); its rules are in [Tenant ObjectBucket Claims](#tenant-objectbucket-claims) |
 | `egressrule-policy.yaml.tmpl` | `egressrule-policy.yaml` | ValidatingAdmissionPolicy guard-railing tenant `EgressRule` claims: named FQDNs only, port 443, the tenant label required (ADR-0041) |
 
 ## Onboarding Tenant N
@@ -187,6 +191,99 @@ This wiring is deferred until the tenant has a domain. When ready:
    solver for the tenant DNS zone (cert-manager ClusterIssuer).
 3. The tenant's `HTTPRoute` lives in the tenant repo (`gitops/prod/`) and attaches to the
    shared Gateway by `parentRefs.sectionName`.
+
+## Tenant ObjectBucket Claims
+
+The rendered `objectbucket-policy.yaml` admits a tenant's `ObjectBucket` claim only when the
+claim meets every rule below. It checks each create and each update. Give this section to the
+tenant with its landing zone.
+
+| Field | Rule |
+|-------|------|
+| `metadata.labels` | `manyfold.dk/tenant: <tenant>` |
+| `spec.parameters.bucketName` | Starts with `<tenant>-` |
+| `spec.parameters.provider` | `hetzner` |
+| `spec.parameters.region` | `hel1`, `fsn1` or `nbg1`, set explicitly (the XRD default `auto` is refused) |
+| `spec.parameters.lockRetentionDays` | Absent or `0`; Object Lock is operator-provisioned only |
+| `spec.parameters.importExisting` | `false`, set explicitly |
+| `spec.writeConnectionSecretToRef.name` | Starts with `<tenant>-` |
+
+A claim for a new bucket, in the tenant repository under `gitops/prod/` (the ApplicationSet
+deploys that directory to `<tenant>-prod`):
+
+```yaml
+apiVersion: storage.manyfold.dk/v1alpha1
+kind: ObjectBucket
+metadata:
+  name: <app>-bucket
+  labels:
+    manyfold.dk/tenant: <tenant>
+spec:
+  crossplane:
+    compositionSelector:
+      matchLabels:
+        environment: cloud
+        provider: hetzner
+  parameters:
+    bucketName: <tenant>-<app>
+    provider: hetzner
+    region: hel1
+    importExisting: false   # a new bucket: create it, do not import it
+  writeConnectionSecretToRef:
+    name: <tenant>-<app>-bucket
+```
+
+The claim reconciles only in a namespace that has the operator-seeded, object-storage-only
+`hetzner` OpenTofu ProviderConfig (ADR-0033 Amendment 2026-06-05). The connection Secret holds
+`endpoint`, `bucket`, `region`, `access-key` and `secret-key`.
+
+### Why importExisting Must Be false
+
+The `ObjectBucket` XRD defaults `importExisting` to `true`. With `true`, the Hetzner
+Composition's OpenTofu module imports `bucketName` into its state before it manages the
+bucket. A new bucket does not exist yet, so the import fails the OpenTofu plan and the claim
+never becomes ready. With `false`, the first apply creates the bucket.
+
+The API server applies the XRD default before admission, so a claim that omits the field
+reaches the policy as `true` and is refused. The tenant must write `importExisting: false`.
+
+After the first apply, the OpenTofu state holds the bucket, and `importExisting` has no
+effect while that state exists. The backend of the `hetzner` ProviderConfig, which the
+installation seeds, decides where that state lives.
+
+### Re-adopting an Existing Bucket
+
+A claim takes over a bucket that already exists only through restored OpenTofu state or
+through `importExisting: true`. That is the case for a bucket made outside the claim, and for
+the bucket of a claim whose state was lost: with `false`, its next apply tries to create
+the bucket and fails, because the bucket exists. The policy refuses `true` for every claim in
+the tenant's namespaces, an operator's claim included, because the binding selects by the
+namespace label. Re-adoption is therefore an operator action:
+
+1. If only the state was lost, restore it from the backup of the ProviderConfig's state
+   backend. For a Kubernetes backend in the claim's namespace, that is the tenant's namespace
+   backup ([Step 4](#step-4-wire-shared-platform-services), the Velero schedule). No import is
+   needed, and the claim stays at `false`.
+2. Otherwise add a reviewed, temporary exception for that one claim to the tenant's rendered
+   `objectbucket-policy.yaml` (for example `|| object.metadata.name == '<claim>'` on the
+   `importExisting` rule). The claim sets `importExisting: true`, and OpenTofu imports the
+   bucket on the next apply.
+3. When the claim is ready, the tenant sets `importExisting: false`. The state now holds the
+   bucket, so the import no longer runs and the apply changes nothing.
+4. Remove the exception only after step 3. The policy also checks updates, Crossplane's own
+   included, so it refuses the next update of a claim that still says `true`.
+
+### Tenants Rendered Before the Rule
+
+The `importExisting` rule is in the template only. A landing zone rendered before the rule
+keeps its policy, and changing this template does not change it: the template is read only
+when a tenant is rendered ([Step 1](#step-1-render-the-template)). The claims of such a tenant
+can rely on the XRD default `true`. The rule would refuse every update of such a claim, also
+the ones Crossplane makes (its finalizer, the composed resource references), so the claim could
+be neither changed nor deleted until it says `false`. To
+move such a tenant onto the rule, first set `importExisting: false` on each of its ready
+claims (harmless, because the state holds each bucket), then add the rule to its rendered
+policy.
 
 ## Validation
 

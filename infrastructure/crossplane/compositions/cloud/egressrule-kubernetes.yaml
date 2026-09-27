@@ -18,15 +18,65 @@ spec:
         kind: GoTemplate
         source: Inline
         inline:
-          # Renders one additive allow-CNP per claim. The composed Object is marked
-          # Ready immediately (gotemplating.fn.crossplane.io/ready) -- a CNP has no
-          # meaningful readiness condition -- so the XR reports Ready once rendered.
+          # Renders one additive allow-CNP per claim, applied by a provider-kubernetes Object.
+          #
+          # Readiness: the XR is Ready only when provider-kubernetes has applied the manifest
+          # rendered now: the observed Object carries this manifest and reports Ready=True
+          # and Synced=True for its current generation. Before the first apply, while a
+          # change is pending, and after a failed apply the Object is marked not ready, so
+          # the XR reports Ready=False ("Unready resources: egress-cnp").
+          # function-auto-ready is not installed; this derives the signal in the template.
+          #
+          # Tenant: the CNP name and label come from the claim's manyfold.dk/tenant label.
+          # The tenant admission policy requires it for tenant-authored claims; a claim
+          # without it (an operator-authored one) fails the render with a message naming
+          # the label, instead of a CNP name the API server rejects.
           template: |
+            {{- define "cnp" }}
+            apiVersion: cilium.io/v2
+            kind: CiliumNetworkPolicy
+            metadata:
+              name: {{ .tenant }}-egress-{{ .name }}
+              namespace: {{ .ns }}
+              labels:
+                manyfold.dk/tenant: {{ .tenant }}
+                app.kubernetes.io/managed-by: crossplane
+            spec:
+              endpointSelector: {}
+              egress:
+                - toFQDNs:
+                  {{- range .fqdns }}
+                    - matchName: {{ . }}
+                  {{- end }}
+                  toPorts:
+                    - ports:
+                      {{- range .ports }}
+                        - port: "{{ . }}"
+                          protocol: TCP
+                      {{- end }}
+            {{- end }}
             {{- $xr := .observed.composite.resource }}
             {{- $ns := $xr.metadata.namespace }}
             {{- $name := $xr.metadata.name }}
-            {{- $tenant := index $xr.metadata.labels "manyfold.dk/tenant" }}
+            {{- $tenant := get ($xr.metadata.labels | default dict) "manyfold.dk/tenant" }}
+            {{- if not $tenant }}
+            {{- $msg := printf "EgressRule %s/%s needs a non-empty manyfold.dk/tenant label: its CiliumNetworkPolicy is named <tenant>-egress-%s after it. Add the label with the owning tenant's name." $ns $name $name }}
+            {{- fail $msg }}
+            {{- end }}
             {{- $ports := $xr.spec.parameters.ports | default (list 443) }}
+            {{- $cnp := include "cnp" (dict "tenant" $tenant "name" $name "ns" $ns "fqdns" $xr.spec.parameters.fqdns "ports" $ports) | trim }}
+            {{- $ready := "False" }}
+            {{- $observed := getComposedResource . "egress-cnp" }}
+            {{- if $observed }}
+            {{- $applied := deepEqual (fromYaml $cnp) (dig "spec" "forProvider" "manifest" (dict) $observed) }}
+            {{- $readyCond := getResourceCondition "Ready" $observed }}
+            {{- $syncedCond := getResourceCondition "Synced" $observed }}
+            {{- $generation := int64 (dig "metadata" "generation" 0 $observed) }}
+            {{- $current := or (eq $syncedCond.ObservedGeneration 0) (eq $syncedCond.ObservedGeneration $generation) }}
+            {{- if and $applied (eq (toString $readyCond.Status) "True") (eq (toString $syncedCond.Status) "True") $current }}
+            {{- $ready = "True" }}
+            {{- end }}
+            {{- end }}
             apiVersion: kubernetes.m.crossplane.io/v1alpha1
             kind: Object
             metadata:
@@ -34,31 +84,11 @@ spec:
               namespace: {{ $ns }}
               annotations:
                 gotemplating.fn.crossplane.io/composition-resource-name: egress-cnp
-                gotemplating.fn.crossplane.io/ready: "True"
+                gotemplating.fn.crossplane.io/ready: "{{ $ready }}"
             spec:
               providerConfigRef:
                 kind: ClusterProviderConfig
                 name: kubernetes-provider
               forProvider:
                 manifest:
-                  apiVersion: cilium.io/v2
-                  kind: CiliumNetworkPolicy
-                  metadata:
-                    name: {{ $tenant }}-egress-{{ $name }}
-                    namespace: {{ $ns }}
-                    labels:
-                      manyfold.dk/tenant: {{ $tenant }}
-                      app.kubernetes.io/managed-by: crossplane
-                  spec:
-                    endpointSelector: {}
-                    egress:
-                      - toFQDNs:
-                        {{- range $xr.spec.parameters.fqdns }}
-                          - matchName: {{ . }}
-                        {{- end }}
-                        toPorts:
-                          - ports:
-                            {{- range $ports }}
-                              - port: "{{ . }}"
-                                protocol: TCP
-                            {{- end }}
+                  {{- $cnp | nindent 6 }}

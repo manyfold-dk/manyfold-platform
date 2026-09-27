@@ -103,12 +103,13 @@ exact version	*	platform/tenants/_template/network-policy.yaml.tmpl
 manyfold.dk subdomain	storage.manyfold.dk	platform/tenants/_template/appproject.yaml.tmpl
 manyfold.dk subdomain	network.manyfold.dk	platform/tenants/_template/appproject.yaml.tmpl
 manyfold.dk subdomain	storage.manyfold.dk	platform/tenants/_template/objectbucket-policy.yaml.tmpl
+manyfold.dk subdomain	storage.manyfold.dk	platform/tenants/_template/README.md
 manyfold.dk subdomain	network.manyfold.dk	platform/tenants/_template/egressrule-policy.yaml.tmpl
 cluster-internal host	.svc	platform/components/blackbox-exporter/values-cloud.yaml
 cluster-internal host	.svc	platform/components/kube-prometheus-stack/values-cloud.yaml
 cluster-internal host	.svc	platform/observability/synthetic/caddy-ingest.yaml
 exact version	2.11.4	platform/observability/synthetic/caddy-ingest.yaml
-exact version	4.4.0	platform/argocd/base/repo-server-patch.yaml
+exact version	4.4.0	platform/argocd/components/ksops/repo-server-patch.yaml
 # Documents: the published ADRs and runbooks.
 # The runbooks directory is this repository's own layout. The ADRs and runbooks also name
 # paths of the platform repository as they stood when each decision was written.
