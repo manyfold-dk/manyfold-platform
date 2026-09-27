@@ -25,7 +25,7 @@ Fully containerized development environment for the Manyfold Platform. All tools
 - **Node.js 24 LTS** + **pnpm 10**
 - **Quarkus CLI** + **Claude CLI**
 - **kubectl** + **Helm** + **kustomize** (Kubernetes tools)
-- **Python 3** with PyYAML (the render harness, `scripts/ci/render-apps.py`)
+- **Python 3** with PyYAML (an installation's render harness)
 - **sops** + **age** (secrets encryption)
 - **zsh** with oh-my-zsh and Powerlevel10k
 
@@ -121,10 +121,13 @@ cluster: the local kind cluster, its deploy scripts and its pipeline scripts wer
 2026-09-27.
 
 - Prove a change inside the devcontainer with the application's own tests and build
-  (`mvn verify`, `pnpm build`) and, for manifests, the render harness
-  (`scripts/ci/render-apps.py`, see `.claude/rules/kubernetes.md`).
-- After a reviewed pull request merges, CI (GitHub Actions) builds and pushes the application
-  images and commits the new tags, and Argo CD deploys `main` to the cloud cluster.
+  (`mvn verify`, `pnpm build`) and, for manifests, a render: `kustomize build` of the changed
+  directory here, and in an installation its render harness, which renders every Argo CD
+  Application before and after a change and compares the two.
+- In an installation, a reviewed merge has CI (GitHub Actions) build and push the application
+  images and commit the new tags, and Argo CD deploys its `main` to the cloud cluster. The
+  public repository's CI verifies a change (the publication gate, a secret scan, a render of
+  every Kustomize directory, the application builds, a link check) and deploys nothing.
 - Read the cloud cluster from inside the devcontainer through the mounted `~/.kube`:
 
 ```bash

@@ -17,7 +17,8 @@ const services = [
 const stack = [
   {
     name: 'Tenants',
-    detail: 'Isolated per company, provisioned with Crossplane',
+    detail:
+      'Isolated per company: a landing zone Argo CD onboards, self-service storage and egress through Crossplane',
     bar: 'bg-brand-pale',
     text: 'text-slate-900',
     sub: 'text-slate-900'

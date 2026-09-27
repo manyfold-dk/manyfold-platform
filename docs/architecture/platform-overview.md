@@ -145,9 +145,9 @@ flowchart LR
     H --> I
 ```
 
-Before the merge, the render harness (`scripts/ci/render-apps.py`, a render before and after the
-change, then `--compare`) and the per-application tests prove a change; after the merge, ArgoCD
-deploys it to the cloud cluster.
+Before the merge, the installation's render harness (a render of every Argo CD Application before
+and after the change, then a comparison) and the per-application tests prove a change; after the
+merge, Argo CD deploys it to the cloud cluster.
 
 This provides a full audit trail in Git history - every deployment is traceable to a specific commit.
 
