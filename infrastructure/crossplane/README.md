@@ -116,6 +116,14 @@ kubectl logs -n crossplane-system -l pkg.crossplane.io/revision
 - **No connection Secret:** a v2 composite needs `writeConnectionSecretToRef` in its XRD
   schema and in the Composition's function input; function-patch-and-transform then composes
   the Secret.
+- **EgressRule not Ready:** the Composition marks the claim Ready only when the composed Object
+  carries the manifest rendered from the claim's current spec and provider-kubernetes reports it
+  `Ready` and `Synced` for its current generation, that is, when the CiliumNetworkPolicy is
+  applied as rendered. The Object's conditions carry the apply error:
+  `kubectl describe objects.kubernetes.m.crossplane.io <name>-egress -n <namespace>`.
+- **EgressRule not Synced, "needs a non-empty manyfold.dk/tenant label":** the Composition names the
+  CiliumNetworkPolicy `<tenant>-egress-<name>` after the claim's `manyfold.dk/tenant` label and
+  refuses to render without it. Add the label with the owning tenant's name.
 
 ## References
 
