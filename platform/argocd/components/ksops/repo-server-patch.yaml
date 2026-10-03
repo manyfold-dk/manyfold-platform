@@ -22,7 +22,7 @@ spec:
       initContainers:
         - name: install-ksops
           # Pinned Alpine 3.21 multi-arch manifest (works on both arm64 and amd64)
-          image: alpine:3.21@sha256:5405e8f36ce1878720f71217d664aa3dea32e5e5df11acbf07fc78ef5661465b
+          image: alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
           command: ["/bin/sh", "-c"]
           args:
             - |
