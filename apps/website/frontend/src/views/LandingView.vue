@@ -85,11 +85,13 @@ const principles = [
         <h1
           class="text-4xl leading-[1.12] font-semibold tracking-[-0.03em] text-balance text-slate-900 sm:text-5xl lg:text-[56px] lg:leading-[1.1]"
         >
-          Kubernetes platforms, built and run in Europe.
+          Opinionated Kubernetes platforms. Sovereign by design.
         </h1>
         <p class="max-w-[600px] text-[17px] leading-relaxed text-slate-700 sm:text-[19px]">
-          25 years in systems where downtime is expensive: rail ticketing, pensions, tax. I build
-          Kubernetes platforms for teams, and I run one of my own on European infrastructure.
+          Yours to keep: everything is code you can read, your data stays in the EU, and you can
+          leave with a working setup. I chose the stack: Talos, Cilium, Argo CD, OpenBao, Keycloak
+          and the Grafana stack, on Hetzner in Helsinki. 25 years in systems where downtime is
+          expensive: rail ticketing, pensions, tax.
         </p>
         <div class="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:gap-5">
           <a

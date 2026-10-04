@@ -60,7 +60,7 @@ test.beforeEach(async ({ page }) => {
 test('landing page presents the practice, the person and live status', async ({ page }) => {
   await page.goto('/')
   await expect(
-    page.getByRole('heading', { level: 1, name: /Kubernetes platforms, built and run in Europe/ })
+    page.getByRole('heading', { level: 1, name: /Opinionated Kubernetes platforms/ })
   ).toBeVisible()
   await expect(page.getByText('Platform engineer, Copenhagen')).toBeVisible()
   await expect(page.getByRole('status')).toHaveText('All systems operational')

@@ -19,7 +19,7 @@ const benefits = [
     body: 'AI agents with real operating rights are the first line. They act on known problems within seconds, day or night, inside limits I set. When something needs a person, I respond within 12 hours. It is also why this costs less than a staffed operations team.'
   },
   {
-    title: 'A way out',
+    title: 'Yours to keep',
     body: 'Everything is code in a repository you own. If you leave, you take a working setup with you.'
   }
 ]

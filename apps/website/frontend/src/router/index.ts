@@ -106,7 +106,7 @@ router.beforeEach((to) => {
   return true
 })
 
-const SITE_TITLE = 'Manyfold -- Kubernetes platforms, built and run in Europe'
+const SITE_TITLE = 'Manyfold -- Opinionated Kubernetes platforms. Sovereign by design.'
 
 router.afterEach((to) => {
   if (typeof document === 'undefined') return
