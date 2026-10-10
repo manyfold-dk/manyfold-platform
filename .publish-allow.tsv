@@ -18,7 +18,6 @@ encrypted secret file	*	.publish-allow.tsv
 # The repository's own layout
 repository path	apps/slack-bot/
 repository path	infrastructure/clusters/
-repository path	docs/adr/
 # The platform's own in-cluster service addresses are its layout, not an installation's
 # (owner, 2026-09-24). Allowed per file, so a tenant's service cannot slip in elsewhere.
 cluster-internal host	.svc	apps/slack-bot/base/deployment.yaml
@@ -112,9 +111,9 @@ cluster-internal host	.svc	platform/observability/synthetic/caddy-ingest.yaml
 exact version	*	platform/observability/synthetic/caddy-ingest.yaml
 exact version	4.4.0	platform/argocd/components/ksops/repo-server-patch.yaml
 # Documents: the published ADRs and runbooks.
-# The runbooks directory is this repository's own layout. The ADRs and runbooks also name
-# paths of the platform repository as they stood when each decision was written.
-repository path	docs/runbooks/
+# The vendored baseline-agent rows at the end of this file allow the docs/adr/ and
+# docs/runbooks/ paths. The ADRs and runbooks also name paths of the platform repository as
+# they stood when each decision was written.
 repository path	docs/claude-code/
 repository path	docs/migration/
 repository path	docs/setup/
