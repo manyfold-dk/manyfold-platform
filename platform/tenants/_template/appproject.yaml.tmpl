@@ -21,6 +21,9 @@ spec:
   # Explicit allowlist of kinds the tenant may manage. NOTE the deliberate
   # EXCLUSIONS: ResourceQuota, LimitRange, NetworkPolicy, CiliumNetworkPolicy,
   # ServiceMonitor, and all RBAC kinds are absent on purpose.
+  # Secret is ALSO excluded (ADR-0033 Amendment 2026-10-10): a tenant's Secrets come
+  # from the platform side (SOPS-encrypted pull secrets, Crossplane connection Secrets),
+  # never from the tenant repository.
   # HTTPRoute is ALSO excluded for now: the shared cloud Gateway accepts routes from
   # all namespaces (allowedRoutes.namespaces.from: All), so until a
   # ValidatingAdmissionPolicy constrains HTTPRoute hostnames to tenant domains
@@ -30,8 +33,6 @@ spec:
   namespaceResourceWhitelist:
     - group: ''
       kind: ConfigMap
-    - group: ''
-      kind: Secret
     - group: ''
       kind: Service
     - group: ''
