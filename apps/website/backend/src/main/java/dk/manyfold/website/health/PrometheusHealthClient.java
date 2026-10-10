@@ -77,6 +77,22 @@ public class PrometheusHealthClient {
 	 *             caller has to be able to tell them apart.
 	 */
 	public Optional<Double> queryInstant(String query) throws PrometheusQueryException {
+		JsonNode result = queryVector(query);
+		if (result.isEmpty()) {
+			return Optional.empty();
+		}
+		return Optional.of(sampleOf(result.get(0)));
+	}
+
+	/**
+	 * Run an instant query and return every series it matched.
+	 *
+	 * @return the result array, empty when the query matched no series
+	 * @throws PrometheusQueryException
+	 *             when Prometheus gave no usable answer, as for
+	 *             {@link #queryInstant}
+	 */
+	private JsonNode queryVector(String query) throws PrometheusQueryException {
 		String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
 		String url = prometheusUrl + "/api/v1/query?query=" + encodedQuery;
 
@@ -114,17 +130,17 @@ public class PrometheusHealthClient {
 					String.format("Prometheus answered %d: %s", code,
 							root.path("error").asText("no result")));
 		}
+		return result;
+	}
 
-		if (result.isEmpty()) {
-			return Optional.empty();
-		}
-
-		JsonNode value = result.get(0).path("value");
+	/** The value of one series of an instant vector. */
+	private static double sampleOf(JsonNode series) throws PrometheusQueryException {
+		JsonNode value = series.path("value");
 		if (!value.isArray() || value.size() < 2) {
 			throw new PrometheusQueryException("Prometheus answered with a sample that has no value");
 		}
 		try {
-			return Optional.of(Double.parseDouble(value.get(1).asText()));
+			return Double.parseDouble(value.get(1).asText());
 		} catch (NumberFormatException e) {
 			throw new PrometheusQueryException(
 					"Prometheus answered with an unreadable sample: " + value, e);
@@ -308,6 +324,9 @@ public class PrometheusHealthClient {
 		return queryInstant(query).map(Double::intValue).orElse(0);
 	}
 
+	/** The firing alerts counted by {@link #getFiringAlerts()}. */
+	private static final String ACTIONABLE_ALERTS = "ALERTS{alertstate=\"firing\",severity=~\"warning|critical\"}";
+
 	/**
 	 * Count the alerts a human would act on.
 	 *
@@ -322,7 +341,7 @@ public class PrometheusHealthClient {
 	 */
 	public int getFiringAlerts() {
 		try {
-			return queryInstant("count(ALERTS{alertstate=\"firing\",severity=~\"warning|critical\"})")
+			return queryInstant("count(" + ACTIONABLE_ALERTS + ")")
 					.map(Double::intValue)
 					.orElse(0);
 		} catch (PrometheusQueryException e) {
