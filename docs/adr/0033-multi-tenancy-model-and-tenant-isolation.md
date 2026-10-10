@@ -18,6 +18,7 @@
 - [Consequences](#consequences)
 - [Amendment 2026-06-05: tenant self-service infra claims (ObjectBucket capability #1)](#amendment-2026-06-05-tenant-self-service-infra-claims-objectbucket-capability-1)
   - [Blueprint DoD -- additional gate](#blueprint-dod----additional-gate-this-list-is-the-canonical-tracker-for-outstanding-hardening)
+- [Amendment 2026-10-10: co-tenancy dormant](#amendment-2026-10-10-co-tenancy-dormant)
 - [Rollback](#rollback)
 
 ## Context
@@ -142,6 +143,19 @@ amendment because it touches the default-deny network posture directly.
       INTERIM (the trusted first co-tenant): each tenant gets a distinct, revocable
       Hetzner S3 credential via its own object-storage-only ProviderConfig; the hcloud
       token is never placed in a tenant namespace. Mandatory before an UNTRUSTED tenant.
+
+## Amendment 2026-10-10: co-tenancy dormant
+
+The shared-cluster co-tenancy model is dormant. The product model is one dedicated cluster per
+customer, so no second co-tenant is planned, and the first co-tenant is being retired. The
+mechanisms this ADR decided stay in place for as long as a tenant runs on the cluster.
+
+The Blueprint Definition of Done gates above, including the additional gate, are not worked
+while no co-tenant is planned. They re-open, unchanged, as the precondition for onboarding any
+tenant onto a shared cluster. The readiness plan that scheduled them was abandoned on
+2026-10-10 for that reason. Two items from it harden the platform without a tenant and are
+carried out on their own: the Argo CD default policy stops granting read access to every
+authenticated user, and the tenant template's AppProject stops admitting `Secret`.
 
 ## Rollback
 
