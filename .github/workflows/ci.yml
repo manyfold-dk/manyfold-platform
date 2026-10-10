@@ -20,20 +20,20 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           repository: manyfold-dk/estate-baseline
-          ref: f1c7ec4fb6017fb008826dd66298133afecacf9d
+          ref: c30ee516e9c37625a16649359b6b350b0c81013f # v1.1.1
           path: .estate-baseline
           persist-credentials: false
-      - uses: manyfold-dk/estate-baseline/.github/actions/install-scanners@f1c7ec4fb6017fb008826dd66298133afecacf9d
+      - uses: manyfold-dk/estate-baseline/.github/actions/install-scanners@c30ee516e9c37625a16649359b6b350b0c81013f # v1.1.1
       - run: |
           set -eu
           mv .estate-baseline "$RUNNER_TEMP/estate-baseline"
           "$RUNNER_TEMP/estate-baseline/scripts/publish-check/publish-check.sh" . --names none --allow .publish-allow.tsv
 
   secret-scan:
-    uses: manyfold-dk/estate-baseline/.github/workflows/secret-scan.yml@f1c7ec4fb6017fb008826dd66298133afecacf9d
+    uses: manyfold-dk/estate-baseline/.github/workflows/secret-scan.yml@c30ee516e9c37625a16649359b6b350b0c81013f # v1.1.1
 
   docs-link-check:
-    uses: manyfold-dk/estate-baseline/.github/workflows/docs-link-check.yml@f1c7ec4fb6017fb008826dd66298133afecacf9d
+    uses: manyfold-dk/estate-baseline/.github/workflows/docs-link-check.yml@c30ee516e9c37625a16649359b6b350b0c81013f # v1.1.1
 
   render:
     # Every Kustomize directory must build.
