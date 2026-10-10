@@ -20,24 +20,52 @@ import dk.manyfold.website.api.v1.model.AlertmanagerWebhook.WebhookPayload;
 import dk.manyfold.website.auth.WebhookAuthenticator;
 import dk.manyfold.website.health.AlertStoreService;
 import dk.manyfold.website.health.AlertStoreService.StoredAlert;
+import dk.manyfold.website.health.AlertmanagerClient;
+import dk.manyfold.website.health.AlertmanagerQueryException;
 
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.RestResponse;
 
-/** REST endpoint for receiving Alertmanager webhooks and querying alerts. */
+/**
+ * REST endpoint for receiving Alertmanager webhooks and querying alerts.
+ *
+ * <p>
+ * The list, the critical list and the summary read one source, so the platform
+ * page's header and list agree: Alertmanager's active alerts, which both
+ * replicas share (issue #529). This replica's webhook store holds only the
+ * calls it was sent, so two replicas' stores can disagree, and an entry whose
+ * resolution reached the other replica stays in it. It is read only when
+ * Alertmanager gives no answer, and the {@value #SOURCE_HEADER} header says
+ * which source answered.
+ */
 @Path("/api/v1/alerts")
 @Tag(name = "Alerts", description = "Alert management operations")
 public class AlertWebhookResource {
 
 	private static final Logger LOG = Logger.getLogger(AlertWebhookResource.class);
 
+	/**
+	 * Where the alert readers' answer came from: {@value #FROM_ALERTMANAGER}, or
+	 * {@value #FROM_REPLICA} when Alertmanager gave no answer and this replica's
+	 * webhook store answered instead.
+	 */
+	public static final String SOURCE_HEADER = "X-Alert-Source";
+
+	static final String FROM_ALERTMANAGER = "alertmanager";
+
+	static final String FROM_REPLICA = "replica";
+
 	@Inject
 	AlertStoreService alertStore;
 
 	@Inject
 	WebhookAuthenticator webhookAuth;
+
+	@Inject
+	AlertmanagerClient alertmanager;
 
 	/** Receive webhook from Alertmanager. */
 	@POST
@@ -64,8 +92,9 @@ public class AlertWebhookResource {
 	@Produces(MediaType.APPLICATION_JSON)
 	@Operation(summary = "Get active alerts", description = "Returns all currently firing alerts")
 	@APIResponse(responseCode = "200", description = "Alerts returned successfully")
-	public List<StoredAlert> getActiveAlerts() {
-		return alertStore.getActiveAlerts();
+	public RestResponse<List<StoredAlert>> getActiveAlerts() {
+		ActiveAlerts active = activeAlerts();
+		return answer(active.alerts(), active);
 	}
 
 	/** Get critical alerts. */
@@ -74,26 +103,71 @@ public class AlertWebhookResource {
 	@Produces(MediaType.APPLICATION_JSON)
 	@Operation(summary = "Get critical alerts", description = "Returns only critical severity alerts")
 	@APIResponse(responseCode = "200", description = "Critical alerts returned successfully")
-	public List<StoredAlert> getCriticalAlerts() {
-		return alertStore.getCriticalAlerts();
+	public RestResponse<List<StoredAlert>> getCriticalAlerts() {
+		ActiveAlerts active = activeAlerts();
+		return answer(active.alerts().stream()
+				.filter(alert -> "critical".equals(alert.severity()))
+				.toList(), active);
 	}
 
-	/** Get alert summary. */
+	/**
+	 * Get alert summary.
+	 *
+	 * <p>
+	 * Counted from the same alerts the list shows. /api/v1/health counts
+	 * Prometheus' firing alerts instead, which include silenced and inhibited ones,
+	 * so the two differ while a silence holds.
+	 */
 	@GET
 	@Path("/summary")
 	@Produces(MediaType.APPLICATION_JSON)
 	@Operation(summary = "Get alert summary", description = "Returns alert counts by severity")
 	@APIResponse(responseCode = "200", description = "Summary returned successfully")
-	public AlertSummary getAlertSummary() {
-		Map<String, Long> counts = alertStore.getAlertCountsBySeverity();
-		return new AlertSummary(
-				alertStore.getActiveAlerts().size(),
-				counts.getOrDefault("critical", 0L).intValue(),
-				counts.getOrDefault("warning", 0L).intValue(),
-				counts.getOrDefault("info", 0L).intValue());
+	public RestResponse<AlertSummary> getAlertSummary() {
+		ActiveAlerts active = activeAlerts();
+		return answer(AlertSummary.of(active.alerts()), active);
 	}
 
-	/** Alert summary record. */
+	/** The active alerts, and which source answered. */
+	record ActiveAlerts(List<StoredAlert> alerts, String source) {
+	}
+
+	private ActiveAlerts activeAlerts() {
+		try {
+			return new ActiveAlerts(alertmanager.getActiveAlerts(), FROM_ALERTMANAGER);
+		} catch (AlertmanagerQueryException e) {
+			LOG.warnf("Alerts unavailable from Alertmanager, answering from this replica's store: %s",
+					e.getMessage());
+			return new ActiveAlerts(alertStore.getActiveAlerts(), FROM_REPLICA);
+		}
+	}
+
+	private static <T> RestResponse<T> answer(T entity, ActiveAlerts active) {
+		return RestResponse.ResponseBuilder.ok(entity)
+				.header(SOURCE_HEADER, active.source())
+				.build();
+	}
+
+	/**
+	 * Alert summary record.
+	 *
+	 * <p>
+	 * {@code info} stays for the readers that key on it. Alertmanager routes only
+	 * warning and critical alerts to the webhook, and the alerts are read for that
+	 * receiver, so it reads 0.
+	 */
 	public record AlertSummary(int total, int critical, int warning, int info) {
+
+		static AlertSummary of(List<StoredAlert> alerts) {
+			return new AlertSummary(
+					alerts.size(),
+					count(alerts, "critical"),
+					count(alerts, "warning"),
+					count(alerts, "info"));
+		}
+
+		private static int count(List<StoredAlert> alerts, String severity) {
+			return (int) alerts.stream().filter(alert -> severity.equals(alert.severity())).count();
+		}
 	}
 }

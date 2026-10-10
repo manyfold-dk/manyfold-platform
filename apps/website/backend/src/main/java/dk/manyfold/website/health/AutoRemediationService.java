@@ -1,11 +1,17 @@
 package dk.manyfold.website.health;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import io.quarkus.scheduler.Scheduled;
+
+import dk.manyfold.website.health.AlertStoreService.StoredAlert;
+import dk.manyfold.website.health.RemediationService.RemediationResult;
 
 import org.jboss.logging.Logger;
 
@@ -19,6 +25,17 @@ import org.jboss.logging.Logger;
  * Supported alert-to-action mappings: - KubePodCrashLooping → pod restart
  * (delete) - KubePodNotReady → pod restart (delete) -
  * KubeDeploymentReplicasMismatch → deployment rollout restart
+ *
+ * <p>
+ * The active alerts come from Alertmanager, which both replicas share, and
+ * never from this replica's webhook store: a replica that missed an alert's
+ * resolution would keep restarting for an alert that is over (issue #529). When
+ * Alertmanager gives no answer, the cycle acts on nothing.
+ *
+ * <p>
+ * Only the replica that holds the {@link RemediationWorkerLease} acts, so the
+ * cooldown and attempt limit, which each replica keeps in memory, hold as they
+ * would for a single replica.
  */
 @ApplicationScoped
 public class AutoRemediationService {
@@ -43,10 +60,13 @@ public class AutoRemediationService {
 			"KubeDeploymentReplicasMismatch");
 
 	@Inject
-	AlertStoreService alertStoreService;
+	AlertmanagerClient alertmanager;
 
 	@Inject
 	RemediationService remediationService;
+
+	@Inject
+	RemediationWorkerLease workerLease;
 
 	@Scheduled(every = "60s", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
 	void scheduledEvaluate() {
@@ -59,45 +79,78 @@ public class AutoRemediationService {
 	/**
 	 * Evaluate active alerts and trigger remediations.
 	 *
-	 * @return number of remediation actions attempted
+	 * <p>
+	 * Fails closed: a replica that does not hold the worker lease, or cannot tell,
+	 * acts on nothing, and the lease is checked again before every restart; without
+	 * an answer from Alertmanager nothing is restarted in this cycle. The next
+	 * cycle asks again.
+	 *
+	 * @return number of remediation actions that succeeded
 	 */
 	public int evaluate() {
-		var alerts = alertStoreService.getActiveAlerts();
+		if (!workerLease.acquire()) {
+			return 0;
+		}
+		List<StoredAlert> alerts;
+		try {
+			alerts = alertmanager.getActiveAlerts();
+		} catch (AlertmanagerQueryException e) {
+			LOG.warnf("Auto-remediation skipped this cycle, Alertmanager gave no answer: %s",
+					e.getMessage());
+			return 0;
+		}
 		int actionCount = 0;
 
 		for (var alert : alerts) {
-			var labels = alert.labels();
-			String alertName = alert.name();
-
-			if (POD_RESTART_ALERTS.contains(alertName)) {
-				String namespace = labels.getOrDefault("namespace", "");
-				String pod = labels.getOrDefault("pod", "");
-				if (!namespace.isEmpty() && !pod.isEmpty()) {
-					LOG.infof("Auto-remediation: restarting pod %s/%s for alert %s",
-							namespace, pod, alertName);
-					var result = remediationService.restartPod(namespace, pod);
-					if (result.success()) {
-						actionCount++;
-					} else {
-						LOG.warnf("Auto-remediation failed: %s", result.message());
-					}
-				}
-			} else if (DEPLOYMENT_RESTART_ALERTS.contains(alertName)) {
-				String namespace = labels.getOrDefault("namespace", "");
-				String deployment = labels.getOrDefault("deployment", "");
-				if (!namespace.isEmpty() && !deployment.isEmpty()) {
-					LOG.infof("Auto-remediation: restarting deployment %s/%s for alert %s",
-							namespace, deployment, alertName);
-					var result = remediationService.rolloutRestartDeployment(namespace, deployment);
-					if (result.success()) {
-						actionCount++;
-					} else {
-						LOG.warnf("Auto-remediation failed: %s", result.message());
-					}
-				}
+			Optional<Supplier<RemediationResult>> action = actionFor(alert);
+			if (action.isEmpty()) {
+				continue;
+			}
+			// Renewed before every restart: a cycle that outlasts the lease (a slow
+			// Kubernetes API) must stop once the other replica may have taken it over.
+			if (!workerLease.acquire()) {
+				LOG.warn("Auto-remediation stopped mid-cycle: this replica no longer holds the lease");
+				break;
+			}
+			RemediationResult result = action.get().get();
+			if (result.success()) {
+				actionCount++;
+			} else {
+				LOG.warnf("Auto-remediation failed: %s", result.message());
 			}
 		}
 
 		return actionCount;
+	}
+
+	/** The restart an alert calls for, or empty when it calls for none. */
+	private Optional<Supplier<RemediationResult>> actionFor(StoredAlert alert) {
+		var labels = alert.labels();
+		String alertName = alert.name();
+		String namespace = labels.getOrDefault("namespace", "");
+
+		if (POD_RESTART_ALERTS.contains(alertName)) {
+			String pod = labels.getOrDefault("pod", "");
+			if (namespace.isEmpty() || pod.isEmpty()) {
+				return Optional.empty();
+			}
+			return Optional.of(() -> {
+				LOG.infof("Auto-remediation: restarting pod %s/%s for alert %s",
+						namespace, pod, alertName);
+				return remediationService.restartPod(namespace, pod);
+			});
+		}
+		if (DEPLOYMENT_RESTART_ALERTS.contains(alertName)) {
+			String deployment = labels.getOrDefault("deployment", "");
+			if (namespace.isEmpty() || deployment.isEmpty()) {
+				return Optional.empty();
+			}
+			return Optional.of(() -> {
+				LOG.infof("Auto-remediation: restarting deployment %s/%s for alert %s",
+						namespace, deployment, alertName);
+				return remediationService.rolloutRestartDeployment(namespace, deployment);
+			});
+		}
+		return Optional.empty();
 	}
 }

@@ -21,7 +21,7 @@ serves a Vue 3 single-page application and the API behind it.
 ## Architecture
 
 ```
-browser ──> oauth2-proxy ──> website backend (Quarkus) ──> Prometheus, Kubernetes API
+browser ──> oauth2-proxy ──> website backend (Quarkus) ──> Prometheus, Alertmanager, Kubernetes API
             (login for                │                      (health, alerts, restarts)
              non-public paths)        └──> Redis stream ──> Slack bot
 Alertmanager, CI ──(bearer token)──> /api/v1/alerts/webhook, /api/v1/pipeline/webhook
@@ -34,8 +34,21 @@ Alertmanager, CI ──(bearer token)──> /api/v1/alerts/webhook, /api/v1/pip
   pod's own deep-health endpoint, layer by layer (infrastructure, network, cluster, platform,
   pipelines, applications). The public endpoints serve a cached answer, so the load on those
   backends is a function of time, not of traffic.
-- **Alerts fan out.** Alertmanager posts to the webhook; the backend keeps the firing set for the
-  console and appends each alert to a Redis stream that the Slack bot consumes.
+- **Alerts fan out.** Alertmanager posts to the webhook; the backend appends each alert, firing or
+  resolved, to a Redis stream that the Slack bot consumes. Each call reaches one replica, so the
+  stream events are built from the call itself, not from what the replica holds.
+- **Active alerts come from Alertmanager.** The alert list, the critical list, their summary and
+  auto-remediation read `GET /api/v2/alerts` with the filters that reproduce what the webhook is
+  sent: active, not silenced, not inhibited, routed to the `backend-webhook` receiver (the Watchdog
+  heartbeat left out). Both replicas read the same Alertmanager, so they agree, and an alert is
+  gone as soon as it resolves, whichever replica its resolution reached. Auto-remediation fails
+  closed: without an answer from Alertmanager it restarts nothing in that cycle. Only one replica
+  runs it, the holder of the Redis key `platform:auto-remediation:worker` (renewed every 60 s
+  cycle, expires after 150 s), so the cooldown and attempt limit each replica keeps in memory hold
+  as for one replica; without Redis no replica restarts anything. The three alert
+  endpoints fall back to the alerts this replica was sent by webhook, which can include alerts
+  whose resolution reached the other replica, and say so in `X-Alert-Source: replica`
+  (`alertmanager` otherwise). `/health` counts Prometheus' firing alerts, silenced ones included.
 - **Web vitals** from real visitors are recorded as bounded metrics: at most 50 routes and the
   known navigation types become tags, anything else counts under `other`, so free text cannot
   grow the series count.
@@ -62,7 +75,7 @@ so no caller holds the `admin` role.
 | `GET /api/v1/status`, `GET /api/v1/status/history` | public | The status page: services, their state, recent history |
 | `GET /api/v1/health`, `GET /api/v1/health/summary` | public | Layered platform health |
 | `GET /api/v1/health/deep` | login | This backend: JVM, resources, dependencies |
-| `GET /api/v1/alerts`, `/alerts/summary`, `/alerts/critical` | login | Firing alerts, with labels |
+| `GET /api/v1/alerts`, `/alerts/summary`, `/alerts/critical` | login | Firing alerts, with labels, from Alertmanager; header `X-Alert-Source` says `alertmanager`, or `replica` when this replica's webhook store answered instead |
 | `POST /api/v1/alerts/webhook`, `POST /api/v1/pipeline/webhook` | bearer token | Alertmanager and pipeline events |
 | `POST /api/v1/remediation/pod/restart`, `/deployment/restart` | `admin` role | Restart a pod or a deployment |
 | `GET /api/v1/remediation/summary` | login | Recent restarts |
@@ -78,7 +91,8 @@ cluster's overlay sets its own values through the environment:
 
 | Variable | Purpose |
 |---|---|
-| `MANYFOLD_PROMETHEUS_URL` | Prometheus for health, alerts and history |
+| `MANYFOLD_PROMETHEUS_URL` | Prometheus for health, alert counts on `/health` and history |
+| `MANYFOLD_ALERTMANAGER_URL` | Alertmanager for the active alerts; `MANYFOLD_ALERTMANAGER_RECEIVER` names the webhook's receiver (default `backend-webhook`) |
 | `QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT` | Trace collector |
 | `QUARKUS_REDIS_HOSTS` | Redis holding the alert stream |
 | `MANYFOLD_STATUS_BACKEND_URL` | The address the status page probes this backend at |
@@ -95,8 +109,8 @@ Java 25, Maven 3.9, Node.js 22 and pnpm; the devcontainer has them all.
 Run the two in separate terminals, each from `apps/website`:
 
 ```bash
-# Terminal 1 -- backend on :8080; it expects Redis on localhost:6379 and Prometheus on
-# localhost:9090 (a port-forward to a cluster works)
+# Terminal 1 -- backend on :8080; it expects Redis on localhost:6379, Prometheus on
+# localhost:9090 and Alertmanager on localhost:9093 (port-forwards to a cluster work)
 cd backend && mvn quarkus:dev
 ```
 

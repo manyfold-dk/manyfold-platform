@@ -602,7 +602,10 @@ done
 | Pull requests | Read & write | Raise update PRs |
 | **Issues** | Read & write | Dependency Dashboard -- queried in `initRepo`, so its absence blocks *everything* |
 | **Workflows** | Read & write | Required to update `.github/workflows/**` (we pin action digests) |
+| **Commit statuses** | Read | Branch status before PR create/update/automerge -- without it every update errors after the push (403 on commits/{sha}/statuses) |
 | Account → Email addresses | Read | Only if `gitAuthor` is unset -- see below |
+
+**What a missing Commit statuses permission looks like:** Renovate pushes the branch, then logs `WARN: Error updating branch` with `403 (Forbidden)` on `GET /repos/{owner}/{repo}/commits/{sha}/statuses` ("Resource not accessible by personal access token", `x-accepted-github-permissions: statuses=read`). The info-level log shows this; no debug run is needed. Renovate never reaches the PR step, so it creates no PR for a new branch and never updates an existing one. An existing PR keeps its rebase checkbox ticked, so Renovate force-pushes that branch on every run, and the Dependency Dashboard lists the branches under "Errored".
 
 **Avoid the email permission entirely:** with no `gitAuthor` configured, Renovate derives the commit identity at startup via `GET /user/emails`, which fine-grained PATs cannot call without the account-level "Email addresses" permission. Setting `RENOVATE_GIT_AUTHOR` skips that lookup, keeping the token's scope narrower. Set it in the Renovate CronJob's environment.
 
