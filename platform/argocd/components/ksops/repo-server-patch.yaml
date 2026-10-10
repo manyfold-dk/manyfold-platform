@@ -9,6 +9,14 @@
 # Security:
 # - Alpine image pinned by digest to prevent supply-chain attacks
 # - KSOPS binary verified with SHA256 checksum from official release
+# - Init container meets PodSecurity `restricted`: non-root (nobody, 65534), no privilege
+#   escalation, no capabilities, RuntimeDefault seccomp, read-only root filesystem. It
+#   writes only to the custom-tools emptyDir, so the download goes there and not to /tmp.
+#
+# The component applies this patch through Kustomize. Applied by hand, it is a strategic
+# merge patch; `kubectl apply -f` rejects a partial Deployment:
+#   kubectl -n argocd patch deployment argocd-repo-server --type=strategic \
+#     --patch-file=platform/argocd/components/ksops/repo-server-patch.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -45,12 +53,24 @@ spec:
               esac
               KSOPS_URL="https://github.com/viaduct-ai/kustomize-sops/releases/download/v${KSOPS_VERSION}/ksops_${KSOPS_VERSION}_Linux_${KSOPS_ARCH}.tar.gz"
               echo "Installing KSOPS v${KSOPS_VERSION} for ${KSOPS_ARCH}..."
-              wget -q -O /tmp/ksops.tar.gz "${KSOPS_URL}"
+              wget -q -O /custom-tools/ksops.tar.gz "${KSOPS_URL}"
               echo "Verifying checksum..."
-              echo "${KSOPS_SHA256}  /tmp/ksops.tar.gz" | sha256sum -c -
-              tar -xzf /tmp/ksops.tar.gz -C /custom-tools
-              chmod +x /custom-tools/ksops
+              echo "${KSOPS_SHA256}  /custom-tools/ksops.tar.gz" | sha256sum -c -
+              tar -xzf /custom-tools/ksops.tar.gz -C /custom-tools ksops
+              rm /custom-tools/ksops.tar.gz
+              # The repo server runs as uid 999; it needs read and execute, not ownership
+              chmod 0755 /custom-tools/ksops
               echo "KSOPS installed and verified successfully"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
             - name: custom-tools
               mountPath: /custom-tools

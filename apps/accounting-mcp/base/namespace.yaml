@@ -4,3 +4,8 @@ metadata:
   name: accounting-mcp
   labels:
     app.kubernetes.io/part-of: manyfold-platform
+    # PodSecurity: advisory. Every workload this repository declares in the namespace is
+    # restricted-compliant. warn/audit makes a violation visible without blocking it;
+    # promoting to `enforce` is the operator's step.
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

@@ -52,6 +52,14 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+          # Liveness starts only once the JVM is up: up to 120 s (24 x 5 s) for a Quarkus
+          # start on a loaded node, where 5 + 3 x 10 s of liveness alone restarts it.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
           livenessProbe:
             httpGet:
               path: /health/live

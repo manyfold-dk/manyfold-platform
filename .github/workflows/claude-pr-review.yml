@@ -76,8 +76,8 @@ jobs:
             - Principle of least privilege for ServiceAccounts
             - No cluster-admin unless absolutely required
 
-            ## CI/CD Security (Tekton/ArgoCD)
-            - Pipeline tasks don't expose secrets in logs
+            ## CI/CD Security (GitHub Actions/ArgoCD)
+            - Workflows don't expose secrets in logs
             - ArgoCD applications follow GitOps best practices
 
             Use inline comments for specific code issues.
