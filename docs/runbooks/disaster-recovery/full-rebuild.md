@@ -7,6 +7,7 @@ Procedure for rebuilding the entire cluster from scratch.
 - [Placeholders](#placeholders)
 - [When to Use](#when-to-use)
 - [Prerequisites](#prerequisites)
+- [Repositories and the Pin](#repositories-and-the-pin)
 - [Time Estimate](#time-estimate)
 - [Procedure](#procedure)
   - [Step 1: Destroy Existing Infrastructure (If Applicable)](#step-1-destroy-existing-infrastructure-if-applicable)
@@ -54,9 +55,35 @@ Replace these placeholders with the values of your installation:
 ## Prerequisites
 
 - Access to OpenTofu state (in Cloudflare R2)
-- Access to Git repository with manifests
+- Read access to the instance repository and to the public platform repository (see [Repositories and the Pin](#repositories-and-the-pin))
 - Hetzner Cloud API token
 - Cloudflare API token
+
+## Repositories and the Pin
+
+Argo CD reads the manifests from two Git repositories:
+
+| Repository | Content | Revision that Argo CD reads |
+|------------|---------|-----------------------------|
+| The instance repository | The Argo CD Applications, the overlays, the instance values and the encrypted secrets | `HEAD` |
+| The public platform repository | The generic bases and the generic Helm values | The commit in `public-platform.lock` |
+
+The `public-platform.lock` file is in the root of the instance repository.
+The `repository` line names the public platform repository.
+The `commit` line names the pinned commit.
+Every remote kustomize base and every `ref: public` source uses the pinned commit.
+The instance repository holds no copy of the public bases.
+
+> **Warning:** Do not move the pin during a rebuild. A new pin changes the manifests that Argo CD deploys.
+
+Before Step 7, do these steps:
+
+1. Read the `repository` line and the `commit` line of `public-platform.lock`.
+2. Run `git fetch --depth 1 <repository> <commit>` in an empty Git repository.
+3. Make sure that the command exits with code 0.
+
+If the fetch fails, Argo CD cannot render the Applications that use the public repository.
+Restore the access to the public repository before Step 7.
 
 ## Time Estimate
 
