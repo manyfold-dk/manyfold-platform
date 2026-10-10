@@ -169,10 +169,10 @@ Memory values (`Mi`, `Gi`) don't have this issue.
 
 ### Controller-Managed Field Drift
 
-ArgoCD may show `OutOfSync` for resources with controller-managed fields (common with CRDs, Tekton resources, etc.) even after successful sync. Common causes:
+ArgoCD may show `OutOfSync` for resources with controller-managed fields (common with CRDs and with resources an operator rewrites) even after successful sync. Common causes:
 
 1. **CRD `preserveUnknownFields`** - Deprecated field stripped by K8s API but present in upstream manifests
-2. **Controller modifications** - Controllers like `tekton-pipelines-controller` modify resources post-apply
+2. **Controller modifications** - A controller rewrites a field after the apply: `kube-controller-manager` on workload fields, or the Tailscale operator replacing the placeholder `externalName` of an egress Service with the address of the proxy it creates
 3. **Normalized values** - API server normalizes certain fields differently than manifests
 
 **Solution:** This platform uses global `ignoreDifferences` configuration in `platform/argocd/base/argocd-cm.yaml`:
@@ -183,24 +183,27 @@ resource.customizations.ignoreDifferences.apiextensions.k8s.io_CustomResourceDef
   jsonPointers:
   - /spec/preserveUnknownFields
 
-# Ignore controller-managed fields on all resources
+# Ignore fields managed by Kubernetes controllers on all resources
 resource.customizations.ignoreDifferences.all: |
   managedFieldsManagers:
   - kube-controller-manager
-  - tekton-pipelines-controller
-  - tekton-triggers-controller
 ```
 
-**Per-application alternative** (when global config isn't suitable):
+**Per-application alternative** (when one field of one resource is rewritten, and a global rule would hide too much):
 ```yaml
 spec:
   ignoreDifferences:
-    - group: tekton.dev
-      kind: '*'
-      managedFieldsManagers:
-        - tekton-pipelines-controller
+    # The Tailscale operator replaces the placeholder ExternalName with the
+    # in-cluster address of the egress proxy it creates.
+    - group: ""
+      kind: Service
+      name: example-egress
+      namespace: example
+      jsonPointers:
+        - /spec/externalName
   syncPolicy:
     syncOptions:
+      # Without it, a sync for another reason re-applies the placeholder.
       - RespectIgnoreDifferences=true
 ```
 
