@@ -201,6 +201,8 @@ and Crossplane.
   secret scan of the commits, a render of every Kustomize directory, a build of the Java and
   Node.js applications, a validation of the OpenTofu modules and a check of the relative links.
   Nothing here deploys: the repository has no cluster.
+- **Merging.** `main` takes changes only through a pull request whose required checks pass;
+  merge with `gh pr merge --auto --squash`.
 - **Coding agents.** [`CLAUDE.md`](CLAUDE.md) and [`AGENTS.md`](AGENTS.md) carry the policy and
   the repository's own notes; the vendored rules and skills come from
   [`estate-baseline`](https://github.com/manyfold-dk/estate-baseline).
