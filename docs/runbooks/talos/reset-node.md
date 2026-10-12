@@ -92,9 +92,10 @@ If talosctl cannot reach the node:
 
 1. **Enable rescue mode via Hetzner Console**
    ```bash
-   hcloud server enable-rescue <server-name> --type linux64
+   hcloud server enable-rescue <server-name> --type linux64 --ssh-key <rescue-key-name>
    hcloud server reset <server-name>
    ```
+   For `<rescue-key-name>`, use the dedicated rescue key of the project, which the instance records.
 
 2. **SSH into rescue mode**
    ```bash
