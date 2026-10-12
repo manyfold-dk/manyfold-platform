@@ -25,6 +25,7 @@
   - [Negative](#negative)
   - [Risks and Mitigations](#risks-and-mitigations)
   - [Operational Amendment (2026-07-12): OpenBao Root-Token Retirement](#operational-amendment-2026-07-12-openbao-root-token-retirement)
+- [Amendment 2026-10-12: OpenBao custody tier for service adapters](#amendment-2026-10-12-openbao-custody-tier-for-service-adapters)
 - [Implementation](#implementation)
   - [Prerequisites](#prerequisites)
   - [Phase 1: Key Generation and Distribution](#phase-1-key-generation-and-distribution)
@@ -41,6 +42,11 @@
 ## Status
 
 Accepted — OpenBao deployed to cloud cluster (2026-02-21)
+
+**Amended 2026-10-12:** OpenBao is the custody tier for service adapters, with exact
+per-consumer paths and Keycloak-issued JWT authentication; SOPS stays for rendered platform
+secrets; the unseal material moves to the operator recovery bundle's custody. See the
+[amendment of 2026-10-12](#amendment-2026-10-12-openbao-custody-tier-for-service-adapters).
 
 ## Context
 
@@ -100,6 +106,11 @@ This approach:
 ### Future Enhancement (Optional)
 
 **OpenBao** can be added later if dynamic secrets or more advanced features become necessary.
+
+> Superseded by the
+> [amendment of 2026-10-12](#amendment-2026-10-12-openbao-custody-tier-for-service-adapters):
+> OpenBao is no longer optional. It is the custody tier for service adapters, and SOPS keeps
+> the rendered platform secrets.
 
 ### Architecture
 
@@ -320,6 +331,87 @@ This amendment does not change the auto-unseal sidecar mechanism or the SOPS-enc
 unseal-key secret described above, which remain exactly as designed; moving them out of
 the single age-key trust tier is tracked by a separate, follow-on trust-tier plan that
 this retirement unblocks.
+
+> The [amendment of 2026-10-12](#amendment-2026-10-12-openbao-custody-tier-for-service-adapters)
+> decides that move: the unseal material leaves the age-key tier for the recovery bundle's
+> custody.
+
+## Amendment 2026-10-12: OpenBao custody tier for service adapters
+
+Recorded per the operator's access-plane design (private), accepted 2026-10-12. This amends
+the Decision in place. It extends the operational amendment of 2026-07-12 (effective
+2026-07-19) and keeps its boundary. Where this section and the text above disagree, this
+section holds.
+
+**OpenBao is the custody tier for service adapters.** A service adapter executes bounded
+operations with credentials held outside agent-readable processes and storage. It returns
+filtered results, never credential values. It does not export credentials into an agent's
+environment or files. Executor leases use the separate custody interface, which is
+inaccessible through the agent-facing gateway. The adapters' credentials live in OpenBao.
+OpenBao moves from "Future Enhancement (Optional)" to a required tier for this class of
+secret.
+
+**Each consumer gets exact paths.** An OpenBao policy names every path its consumer reads,
+one by one. A policy grants no wildcard and no shared prefix across consumers. A consumer that
+needs a new secret gets a new path in its own policy, never access to another consumer's path.
+
+**Keycloak-issued JWTs replace AppRole for adapters.** Adapters replacing AppRole
+authenticate through OpenBao's JWT auth method using short-lived Keycloak-issued tokens
+([ADR-0018 amendment of 2026-10-12](0018-identity-management-strategy.md#amendment-2026-10-12-keycloak-as-the-access-plane-authorization-server)).
+Validation binds issuer, audience and subject to the intended consumer. AppRole leaves the
+design, because its secret ID is a stored credential that needs custody of its own. Human
+access uses OIDC against Keycloak. In-cluster workloads retain projected ServiceAccount
+authentication to exact OpenBao roles, so the Kubernetes-auth roles of the 2026-07-12
+amendment stay. Human administrative access migrates to OIDC only after independent recovery
+has been proven.
+
+**Each operational secret has one authoritative custody tier.** That tier is SOPS for
+rendered platform secrets or OpenBao for adapter credentials. A rendered platform secret is
+one that GitOps renders into the cluster as a Kubernetes Secret, including the secrets the
+platform needs before OpenBao is up; these stay SOPS-encrypted in Git, as the Decision above
+describes. Required recovery copies are separately protected and recorded.
+
+**Unseal material belongs to the operator recovery bundle.** Unseal material belongs to the
+client-side encrypted operator recovery bundle, with a versioned online copy and offline
+copies. Decryption identities are held separately from ciphertext. Recovery must work without
+the cluster, Keycloak, OpenBao, Tailscale or GitHub. The bundle is never on the day-to-day
+path. This is the trust-tier move that the 2026-07-12 amendment left open. Prove independent
+recovery and the post-restart unseal procedure before removing the existing unseal Secret.
+Any automated replacement must preserve these custody boundaries. The mechanics of unsealing
+after a restart are left to the implementation plan.
+
+**The no-root-token boundary stands.** No root token exists or is stored, and true root is
+recovered only under change control, as the 2026-07-12 amendment decided. Nothing in this
+section reintroduces a standing root path.
+
+**A consumer register is a required artefact.** The register lists, for every credential:
+
+| Field | Content |
+|---|---|
+| Credential | Its name and the system it opens, never its value |
+| Consumer | The consuming actor or device |
+| Root or derived | Whether it is a service root credential or derived from one |
+| Every copy | Each place the credential exists: the OpenBao path, a SOPS file, the issuing system, the recovery bundle |
+| Restore or reissue | Whether recovery restores it from a copy or reissues it at the issuer |
+| Rotation procedure | A link to the runbook section that rotates it |
+| Last rotation | The date of the last completed rotation |
+| Predecessor revoked at | The date the previous credential was revoked |
+| Issuer-side revocation | The procedure that revokes it at the issuer |
+
+The register produces the service-root inventory and its count. The register holds no value.
+It names consumers, so it belongs to the instance and not to this repository. A credential
+that is not in the register is a finding, not an exception.
+
+### Consequences of the amendment
+
+- The platform SOPS age key no longer directly decrypts adapter credentials or unseal
+  material. Preventing indirect access also depends on the identity and execution boundaries.
+- A compromised consumer exposes its own paths only, because no policy reaches beyond them.
+- No adapter holds a static OpenBao login secret.
+- An agent never sees an adapter's credential values; it sees filtered results.
+- OpenBao becomes a run-time dependency of every service adapter. Its availability, backup
+  and restore now gate those services.
+- Every credential has a known set of copies, so a rotation can prove it reached all of them.
 
 ## Implementation
 

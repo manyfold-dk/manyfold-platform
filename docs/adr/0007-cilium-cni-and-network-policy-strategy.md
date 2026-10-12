@@ -10,12 +10,17 @@
 - [Consequences](#consequences)
 - [Alternatives Considered](#alternatives-considered)
 - [Implementation Phases](#implementation-phases)
+- [Amendment 2026-10-12: default-deny for platform namespaces](#amendment-2026-10-12-default-deny-for-platform-namespaces)
 - [References](#references)
 - [Notes](#notes)
 
 ## Status
 
 Accepted
+
+**Amended 2026-10-12:** default-deny is the stance for platform namespaces, rolled out one
+namespace at a time. See the
+[amendment of 2026-10-12](#amendment-2026-10-12-default-deny-for-platform-namespaces).
 
 ## Context
 
@@ -56,6 +61,10 @@ We will use **Cilium** as the CNI plugin with **Hubble** for network observabili
 
 1. **Default Stance**: Allow all traffic initially (no default-deny)
 2. **Progressive Hardening**: Add policies as services mature
+
+> Superseded for platform namespaces by the
+> [amendment of 2026-10-12](#amendment-2026-10-12-default-deny-for-platform-namespaces):
+> items 1 and 2 give way to default-deny, rolled out one namespace at a time.
 3. **Policy Types**: Use CiliumNetworkPolicy for advanced features, standard NetworkPolicy for portability
 4. **L7 Policies**: Reserved for API endpoints requiring path/method filtering
 
@@ -143,6 +152,11 @@ We will use **Cilium** as the CNI plugin with **Hubble** for network observabili
 ### Network Policy Strategy Rationale
 
 **Why Not Default-Deny?**
+
+> Superseded by the
+> [amendment of 2026-10-12](#amendment-2026-10-12-default-deny-for-platform-namespaces).
+> The argument below rested on local development, which left with the kind cluster.
+
 - Local development should be friction-free initially
 - Default-deny breaks connectivity until policies are written
 - Better to add policies progressively as understanding grows
@@ -400,7 +414,8 @@ infrastructure/clusters/local/
 
 ### Phase 2: Hardening (Future)
 - [ ] Define baseline policies for all namespaces
-- [ ] Implement default-deny with explicit allows
+- [ ] Implement default-deny with explicit allows (method in the
+  [amendment of 2026-10-12](#amendment-2026-10-12-default-deny-for-platform-namespaces))
 - [ ] Add Hubble metrics to Prometheus
 - [ ] Create Grafana dashboards for network visibility
 - [ ] Document policy testing procedures
@@ -410,6 +425,55 @@ infrastructure/clusters/local/
 - [ ] Implement Cilium encryption (WireGuard)
 - [ ] Add Cilium network policy CRD validation
 - [ ] Integrate policy changes into CI/CD pipeline
+
+## Amendment 2026-10-12: default-deny for platform namespaces
+
+Recorded per the operator's access-plane design (private), accepted 2026-10-12. This amends
+the Network Policy Strategy in place. The choice of Cilium and Hubble, the policy types and the
+L3/L4 versus L7 guidance stand.
+
+**Default-deny is the stance for platform namespaces.** A platform namespace is one that holds
+a platform component, as opposed to a tenant's workloads. Each platform namespace ends with a
+policy that denies all ingress and all egress, and with explicit allow policies for every flow
+the namespace needs. The progressive-hardening stance above no longer applies to platform
+namespaces. The original argument against default-deny was friction in local development; the
+kind cluster is retired, so that argument no longer holds.
+
+**The rollout goes one namespace at a time, through measurable gates.** A namespace moves to
+default-deny only after a flow inventory:
+
+1. Hubble captures the namespace's flows, ingress and egress, for at least one week. The
+   window includes a backup cycle and a credential-rotation cycle. It extends further when the
+   namespace has other periodic work that one week does not cover.
+2. The operator writes an allow policy for every inventoried flow that the namespace needs,
+   and drops the flows it does not need. DNS, the API server and the kubelet health checks are
+   flows too.
+3. The operator tests the rollback, then applies the namespace's default-deny policy with its
+   allow policies in one change.
+4. The rollout advances to the next namespace only after all of these hold for this one:
+   48 hours without a drop of a legitimate flow, healthy reconciliation, successful checks of
+   the namespace's required services, and a failed connection from the namespace to a service
+   outside its allow list.
+
+A sensitive namespace may be staged per workload instead of all at once.
+
+**Rollback.** Default-deny policies are namespaced, never cluster-wide. Test rollback before
+each step. Revert the namespace's policy change. If the policy blocks reconciliation, use the
+independent operator path to remove the blocking policy before completing the Git revert.
+
+**The record is generic.** This ADR and this repository name no namespace and keep no rollout
+list. The flow inventory and the per-namespace rollout state belong to the instance, which
+knows its namespaces. Tenant namespaces are outside this amendment; the tenancy model
+([ADR-0033](0033-multi-tenancy-model-and-tenant-isolation.md)) governs their isolation.
+
+### Consequences of the amendment
+
+- A new platform component arrives with its allow policies, because its namespace denies
+  everything else.
+- A flow that the inventory missed fails closed. Hubble shows the drop and the policy that
+  caused it, which is the debugging path this ADR chose Hubble for.
+- The rollout is slower than a cluster-wide switch. In exchange, each step has a small blast
+  radius, a tested rollback and a recovery path that does not depend on reconciliation.
 
 ## References
 

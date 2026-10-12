@@ -36,6 +36,7 @@
   - [Phase 5: Workload Registration](#phase-5-workload-registration)
   - [Directory Structure](#directory-structure)
 - [Alternatives Considered](#alternatives-considered)
+- [Amendment 2026-10-12: Keycloak as the access-plane authorization server](#amendment-2026-10-12-keycloak-as-the-access-plane-authorization-server)
 - [Related Decisions](#related-decisions)
 - [References](#references)
 - [Notes](#notes)
@@ -47,6 +48,11 @@ Accepted
 **Note (2026-06-12):** Tier 1 (Keycloak) is implemented and live in the cloud cluster
 (see `platform/components/keycloak/`). Tier 2 (SPIRE) is decided but not implemented; no
 workload-identity deployment exists yet.
+
+**Amended 2026-10-12:** Keycloak is the single OAuth authorization server for access-plane
+principals: humans, hosts, services, CI and hosted agents. SPIRE stays decided but not implemented, and the amended
+design does not require it. See the
+[amendment of 2026-10-12](#amendment-2026-10-12-keycloak-as-the-access-plane-authorization-server).
 
 ## Context
 
@@ -268,6 +274,11 @@ We will implement a **two-tier identity strategy**:
 ### Tier 1: User Identity - Keycloak
 
 **Keycloak** will serve as the central identity provider for human users and external systems.
+
+> Widened by the
+> [amendment of 2026-10-12](#amendment-2026-10-12-keycloak-as-the-access-plane-authorization-server):
+> Keycloak is the single OAuth authorization server for access-plane principals: humans, hosts,
+> services, CI and hosted agents.
 
 ### Tier 2: Workload Identity - SPIRE
 
@@ -813,11 +824,68 @@ platform/
 - **Status**: Valid phased approach
 - **Note**: Phase 4-5 can be deferred if workload identity not immediately needed
 
+## Amendment 2026-10-12: Keycloak as the access-plane authorization server
+
+Recorded per the operator's access-plane design (private), accepted 2026-10-12. This amends
+the Decision in place. Tier 1 widens; Tier 2 keeps its status. Where this section and the
+text above disagree, this section holds.
+
+**Keycloak is the single OAuth authorization server for access-plane principals.** The
+access-plane principals are humans, hosts, services, CI and hosted agents. The access plane's
+gateway validates Keycloak-issued, audience-scoped tokens. OpenBao's adapter JWT
+authentication trusts Keycloak
+([ADR-0017 amendment of 2026-10-12](0017-secrets-management-strategy.md#amendment-2026-10-12-openbao-custody-tier-for-service-adapters));
+its retained Kubernetes-auth roles accept projected ServiceAccount tokens.
+
+| Principal | How it obtains a token |
+|---|---|
+| Human | Authorization code with PKCE in browsers; device authorization flow in terminals |
+| Host | Its own enrolled identity, with client credentials or private-key JWT |
+| Service or adapter | Its own enrolled identity, with client credentials or private-key JWT. An adapter presents its Keycloak token to OpenBao's JWT auth method. An in-cluster workload that reads OpenBao directly keeps projected ServiceAccount authentication |
+| CI | Exchanges its provider-issued job identity for a short-lived, audience-scoped grant (OAuth 2.0 Token Exchange) |
+| Hosted agent | A scoped client without realm-administrator authority |
+
+No second OAuth authorization server issues access-plane tokens.
+
+**Root accounts use WebAuthn.** Root accounts are the highest-authority accounts for
+identity, infrastructure, provider services and recovery, including accounts that can recover
+or take control of those systems. The Keycloak administrator is one example. Every root
+account requires WebAuthn, with independently enrolled and tested primary and spare hardware
+keys.
+
+**No client uses the password grant.** Disable Resource Owner Password Credentials on every
+Keycloak client. Non-browser interactive login uses device flow; non-human principals use
+client credentials or token exchange.
+
+**Agent principals get no administrative authority.** Agent principals receive scoped
+clients without realm-administrator authority. Remove public administrative routes and
+disable the password grant promptly. Retire existing privileged agent-user access and migrate
+human administrative access only after independent recovery has been demonstrated.
+
+**SPIRE stays decided but not implemented.** Tier 2 keeps the status the note of 2026-06-12
+records. The access-plane design does not require SPIRE: access-plane principals authenticate
+with Keycloak tokens, and in-cluster workloads keep projected ServiceAccount tokens. A later
+decision to implement SPIRE builds on this design and is not a precondition of it.
+
+### Consequences of the amendment
+
+- One issuer, one set of signing keys and one audit log cover every access-plane OAuth token.
+  Keycloak's availability now gates machine access through the access plane as well as human
+  login.
+- CI exchanges its provider-issued job identity for a short-lived, audience-scoped grant.
+  Hosted-agent vendors may retain refresh tokens restricted to gateway access. They receive no
+  provider credential; revocation covers both the client and its refresh session.
+- Root accounts are phishing-resistant, at the cost of two independently enrolled hardware
+  keys for each of them.
+- The "Single Identity System" alternative above was rejected for lack of cryptographic
+  workload identity. That rejection still describes SPIRE's added value; it no longer blocks
+  using Keycloak for access-plane service tokens.
+
 ## Related Decisions
 
 - [ADR-0007: Cilium CNI and Network Policy Strategy](0007-cilium-cni-and-network-policy-strategy.md) - Cilium supports SPIFFE for mTLS
 - [ADR-0013: Observability Stack](0013-observability-stack.md) - Grafana OIDC integration
-- [ADR-0017: Secrets Management Strategy](0017-secrets-management-strategy.md) - Credentials for Keycloak, SPIRE integration
+- [ADR-0017: Secrets Management Strategy](0017-secrets-management-strategy.md) - Credentials for Keycloak, SPIRE integration; OpenBao JWT authentication (amendment of 2026-10-12)
 
 ## References
 
