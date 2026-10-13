@@ -440,13 +440,14 @@ This tells containerd on each node to use the internal mirrors before falling ba
 
 ### Setting gateway_ip
 
-`gateway_ip` is the external address of the Cilium Gateway's load balancer. The Hetzner
-CCM creates that load balancer only after the cluster runs the platform applications (see
-[Next Steps](#next-steps)), so the first `tofu apply` runs without `gateway_ip`. Until
-`gateway_ip` is set, the nodes have no host entries for the mirror names and containerd
-pulls from the upstream registries.
+`gateway_ip` is the load balancer address the nodes use to reach the registry gateway (the
+Cilium Gateway). It is public or private, depending on the installation's network. The
+Hetzner CCM creates that load balancer only after the cluster runs the platform
+applications (see [Next Steps](#next-steps)), so the first `tofu apply` runs without
+`gateway_ip`. Until `gateway_ip` is set, the nodes have no host entries for the mirror
+names and containerd pulls from the upstream registries.
 
-After the Gateway has its external address:
+After the Gateway's load balancer has its address:
 
 1. Read the address: `kubectl --kubeconfig <cloud-kubeconfig> get gateway -A` shows it in
    the `ADDRESS` column.
