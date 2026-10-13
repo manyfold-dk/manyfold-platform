@@ -132,7 +132,7 @@ variable "internal_subdomain" {
 # -----------------------------------------------------------------------------
 
 variable "gateway_ip" {
-  description = "External IP of the Cilium Gateway (Hetzner CCM LoadBalancer) for internal registry mirror DNS. The address exists only after the cluster runs; leave it null on the first apply (see README.md \"Registry Mirrors\")"
+  description = "Load balancer address the nodes use to reach the registry gateway (the Cilium Gateway, Hetzner CCM LoadBalancer), for internal registry mirror DNS; public or private depending on the installation's network. The address exists only after the cluster runs; leave it null on the first apply (see README.md \"Registry Mirrors\")"
   type        = string
   default     = null
 
