@@ -15,8 +15,10 @@ Only when the user asks for a branch (BRANCH-01).
 - **Helper**: `./scripts/worktree-session.sh start|list|switch|cleanup <task-name>`. It
   creates `$MANYFOLD_WORKTREE_BASE/<task-name>` (default
   `~/.manyfold-worktrees/manyfold-platform/<task-name>`) from the current `HEAD` and links
-  the main checkout's ignored operator files (`.env` files, `infrastructure/.working/`)
-  into it when they exist.
+  the main checkout's `infrastructure/.working/` into it when it exists. It links or copies
+  no `.env*` file. A command that needs an environment value reads the main checkout's file
+  by explicit path, or exports the one variable that one command needs (see the helper's
+  header comment).
 - **Without the helper**, the plain shape:
 
 ```bash
