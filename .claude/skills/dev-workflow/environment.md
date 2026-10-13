@@ -14,11 +14,12 @@ Only when the user asks for a branch (BRANCH-01).
 - **Branch**: `feature/<task-name>`
 - **Helper**: `./scripts/worktree-session.sh start|list|switch|cleanup <task-name>`. It
   creates `$MANYFOLD_WORKTREE_BASE/<task-name>` (default
-  `~/.manyfold-worktrees/manyfold-platform/<task-name>`) from the current `HEAD` and links
-  the main checkout's `infrastructure/.working/` into it when it exists. It links or copies
-  no `.env*` file. A command that needs an environment value reads the main checkout's file
-  by explicit path, or exports the one variable that one command needs (see the helper's
-  header comment).
+  `~/.manyfold-worktrees/manyfold-platform/<task-name>`) from the current `HEAD`. It links
+  or copies no `.env*` file and no `infrastructure/.working/`, and removes such links that
+  an earlier version created. A command that needs an environment value reads the main
+  checkout's file by explicit path, or exports the one variable that one command needs. A
+  `tofu` run passes the main checkout's `backend.hcl` and `terraform.tfvars` with
+  `-backend-config` and `-var-file` (see the helper's header comment).
 - **Without the helper**, the plain shape:
 
 ```bash

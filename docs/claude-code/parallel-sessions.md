@@ -27,7 +27,7 @@ This enables running multiple agent sessions on different tasks simultaneously.
 
 The canonical shared root is `~/.manyfold-worktrees/<checkout>/<task-name>`, where `<checkout>` is the directory name of the main checkout (the helper derives it, so two checkouts of this tree keep their worktrees apart). Use `./scripts/worktree-session.sh` as the shared helper.
 
-`ws start` creates the worktree and the feature branch. It links or copies no `.env*` file into the worktree, so a worktree holds no environment file; `start` and `switch` remove `.env*` links that an earlier version of the helper created.
+`ws start` creates the worktree and the feature branch. It links or copies no `.env*` file and no `infrastructure/.working/` into the worktree, so a worktree holds no environment file and no OpenTofu backend configuration with the state backend's credentials. `start` and `switch` remove the `.env*` and `infrastructure/.working` links that an earlier version of the helper created.
 
 A command in a worktree that needs an environment value reads the main checkout's file by explicit path at the point of use:
 
@@ -36,6 +36,15 @@ main="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)
 some-tool --env-file "$main/.env.cloud" ...                                   # pass the path
 HCLOUD_TOKEN="$(sed -n 's/^HCLOUD_TOKEN=//p' "$main/.env.cloud")" hcloud server list   # one variable, one command
 ```
+
+A `tofu` run from a worktree passes the main checkout's working files the same way:
+
+```bash
+tofu init -backend-config="$main/infrastructure/.working/cloud/bootstrap/backend.hcl"
+tofu plan -var-file="$main/infrastructure/.working/cloud/bootstrap/terraform.tfvars"
+```
+
+`./scripts/dev-shell.sh` reads the main checkout's `.env` by explicit path, also when it starts from a worktree; `--env-file <path>` names another file.
 
 Do not source a whole environment file into an agent's shell.
 

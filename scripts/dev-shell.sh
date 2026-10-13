@@ -13,6 +13,11 @@
 #   ./scripts/dev-shell.sh --daemon         # Start container in background
 #   ./scripts/dev-shell.sh --stop           # Stop background container
 #   ./scripts/dev-shell.sh --help           # Show full help
+#   ./scripts/dev-shell.sh --env-file <path> [OPTION]  # Read environment values from <path>
+#
+# Environment values: the script reads the main checkout's .env by explicit path, also
+# when it starts from a Git worktree, which holds no environment file. --env-file names
+# another file.
 
 set -e
 
@@ -22,6 +27,12 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONTAINER_NAME="manyfold-dev"
 IMAGE_NAME="manyfold-devcontainer:latest"
 DOCKERFILE="$PROJECT_DIR/.devcontainer/Dockerfile"
+# A worktree holds no .env file (scripts/worktree-session.sh), so the default is the main
+# checkout's file: the common git dir's parent, the same from the main checkout and from a
+# worktree. --env-file overrides.
+MAIN_CHECKOUT="$(cd "$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$PROJECT_DIR/.git")/.." && pwd)"
+ENV_FILE="$MAIN_CHECKOUT/.env"
+ENV_FILE_EXPLICIT=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -52,9 +63,11 @@ show_help() {
 Manyfold Platform - Development Container Shell
 
 USAGE:
-    ./scripts/dev-shell.sh [OPTIONS]
+    ./scripts/dev-shell.sh [--env-file <path>] [OPTIONS]
 
 OPTIONS:
+    --env-file <path> Read environment values from <path> (default: the main
+                    checkout's .env, also when started from a worktree)
     (no options)    Start an interactive shell in a new container
     --build         Rebuild the container image before starting
     --rebuild       Clean container, rebuild image, and start shell
@@ -90,6 +103,16 @@ EXAMPLES:
     # Stop background container
     ./scripts/dev-shell.sh --stop
 
+    # Start a shell with the values of another environment file
+    ./scripts/dev-shell.sh --env-file /path/to/main-checkout/.env.local
+
+ENVIRONMENT FILE:
+    The container gets the NAME=value lines of one environment file as environment
+    variables. The default is the main checkout's .env: a Git worktree holds no
+    environment file, so the script resolves the main checkout from the common git dir
+    and reads its file by explicit path. --env-file names another file. Without the file
+    the container starts without these values.
+
 PORTS:
     The following ports are automatically forwarded:
     - 8080  Quarkus backend API
@@ -110,6 +133,30 @@ VOLUMES:
     - ~/.kube → ~/.kube (kubectl config, read-only if present)
 
 EOF
+}
+
+# Read the NAME=value lines of ENV_FILE into ENV_VARS as docker run -e arguments.
+load_env_vars() {
+    ENV_VARS=()
+    if [ ! -f "$ENV_FILE" ]; then
+        if [ "$ENV_FILE_EXPLICIT" = true ]; then
+            print_error "Environment file not found: $ENV_FILE"
+            exit 1
+        fi
+        print_info "No environment file at $ENV_FILE; starting without one"
+        return 0
+    fi
+
+    print_info "Loading environment variables from $ENV_FILE"
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^#.*$ ]] && continue
+        [[ -z "$key" ]] && continue
+        # Remove quotes from value if present
+        value="${value%\"}"
+        value="${value#\"}"
+        ENV_VARS+=("-e" "$key=$value")
+    done < "$ENV_FILE"
 }
 
 check_docker() {
@@ -194,20 +241,7 @@ start_interactive() {
 
     print_info "Persistent volumes: claude-config, codex-config, maven-repo, pnpm-store"
 
-    # Load environment variables from .env if it exists
-    ENV_VARS=()
-    if [ -f "$PROJECT_DIR/.env" ]; then
-        print_info "Loading environment variables from .env"
-        while IFS='=' read -r key value; do
-            # Skip comments and empty lines
-            [[ "$key" =~ ^#.*$ ]] && continue
-            [[ -z "$key" ]] && continue
-            # Remove quotes from value if present
-            value="${value%\"}"
-            value="${value#\"}"
-            ENV_VARS+=("-e" "$key=$value")
-        done < "$PROJECT_DIR/.env"
-    fi
+    load_env_vars
 
     # Build the run command environment variables
     RUN_ENV_ARGS=()
@@ -281,20 +315,7 @@ start_daemon() {
 
         print_info "Persistent volumes: claude-config, codex-config, maven-repo, pnpm-store"
 
-        # Load environment variables from .env if it exists
-        ENV_VARS=()
-        if [ -f "$PROJECT_DIR/.env" ]; then
-            print_info "Loading environment variables from .env"
-            while IFS='=' read -r key value; do
-                # Skip comments and empty lines
-                [[ "$key" =~ ^#.*$ ]] && continue
-                [[ -z "$key" ]] && continue
-                # Remove quotes from value if present
-                value="${value%\"}"
-                value="${value#\"}"
-                ENV_VARS+=("-e" "$key=$value")
-            done < "$PROJECT_DIR/.env"
-        fi
+        load_env_vars
 
         # Build the run command environment variables
         RUN_ENV_ARGS=()
@@ -426,6 +447,23 @@ clean_container() {
 
 # Main script
 main() {
+    case "${1:-}" in
+        --env-file)
+            if [ -z "${2:-}" ]; then
+                print_error "--env-file needs a path"
+                exit 1
+            fi
+            ENV_FILE="$2"
+            ENV_FILE_EXPLICIT=true
+            shift 2
+            ;;
+        --env-file=*)
+            ENV_FILE="${1#--env-file=}"
+            ENV_FILE_EXPLICIT=true
+            shift
+            ;;
+    esac
+
     check_docker
 
     case "${1:-}" in

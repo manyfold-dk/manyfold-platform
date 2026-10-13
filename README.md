@@ -197,9 +197,10 @@ and Crossplane.
   are in [`docs/setup/macos-setup.md`](docs/setup/macos-setup.md).
 - **Parallel work.** One Git worktree per task: `./scripts/worktree-session.sh start <task>`
   ([`docs/claude-code/parallel-sessions.md`](docs/claude-code/parallel-sessions.md)). A
-  worktree holds no `.env*` file. A command that needs an environment value reads the main
-  checkout's file by explicit path: pass the path to the tool, or export the one variable
-  that one command needs.
+  worktree holds no `.env*` file and no `infrastructure/.working/`. A command that needs an
+  environment value reads the main checkout's file by explicit path: pass the path to the
+  tool, or export the one variable that one command needs. A `tofu` run passes the main
+  checkout's `backend.hcl` and `terraform.tfvars` with `-backend-config` and `-var-file`.
 - **Checks.** Every pull request runs the publication gate (shapes and both secret scanners), a
   secret scan of the commits, a render of every Kustomize directory, a build of the Java and
   Node.js applications, a validation of the OpenTofu modules and a check of the relative links.
