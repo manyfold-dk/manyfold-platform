@@ -196,7 +196,10 @@ and Crossplane.
   ([`.devcontainer/README.md`](.devcontainer/README.md)). The macOS tools and their verification
   are in [`docs/setup/macos-setup.md`](docs/setup/macos-setup.md).
 - **Parallel work.** One Git worktree per task: `./scripts/worktree-session.sh start <task>`
-  ([`docs/claude-code/parallel-sessions.md`](docs/claude-code/parallel-sessions.md)).
+  ([`docs/claude-code/parallel-sessions.md`](docs/claude-code/parallel-sessions.md)). A
+  worktree holds no `.env*` file. A command that needs an environment value reads the main
+  checkout's file by explicit path: pass the path to the tool, or export the one variable
+  that one command needs.
 - **Checks.** Every pull request runs the publication gate (shapes and both secret scanners), a
   secret scan of the commits, a render of every Kustomize directory, a build of the Java and
   Node.js applications, a validation of the OpenTofu modules and a check of the relative links.

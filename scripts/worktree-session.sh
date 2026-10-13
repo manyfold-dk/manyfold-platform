@@ -15,6 +15,19 @@
 #   ./scripts/worktree-session.sh cleanup-all            # Remove all sessions under WORKTREE_BASE
 #   ./scripts/worktree-session.sh status                 # Show current worktree status
 #   ./scripts/worktree-session.sh help                   # Show this help
+#
+# Environment files: the helper links no .env* file into a worktree and makes no copy of
+# one, so a worktree holds no environment file. On start and switch it removes .env*
+# symlinks that an earlier version of this helper created. A command in a worktree that
+# needs an environment value reads the main checkout's file by explicit path at the point
+# of use. Pass the file's path to the tool, or export the one variable that one command
+# needs:
+#
+#   main="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
+#   some-tool --env-file "$main/.env.cloud" ...
+#   HCLOUD_TOKEN="$(sed -n 's/^HCLOUD_TOKEN=//p' "$main/.env.cloud")" hcloud server list
+#
+# Do not source a whole environment file into an agent's shell.
 
 set -e
 
@@ -59,26 +72,6 @@ normalize_task_name() {
     echo "$1" \
         | tr '[:upper:]' '[:lower:]' \
         | sed -E 's#[[:space:]/]+#-#g; s#[^a-z0-9._-]#-#g; s#-+#-#g; s#^-##; s#-$##'
-}
-
-link_repo_file() {
-    local source_path=$1
-    local target_path=$2
-    local description=$3
-
-    if [ ! -f "$source_path" ]; then
-        return 0
-    fi
-
-    mkdir -p "$(dirname "$target_path")"
-
-    if [ -e "$target_path" ] && [ ! -L "$target_path" ]; then
-        print_warning "Skipped $description because $target_path already exists and is not a symlink"
-        return 0
-    fi
-
-    ln -sfn "$source_path" "$target_path"
-    print_success "Linked $description"
 }
 
 link_repo_path() {
@@ -157,7 +150,8 @@ show_help() {
     echo "    - Each session creates a worktree in: ${WORKTREE_BASE}/<task-name>"
     echo "    - Each session gets its own branch: feature/<task-name>"
     echo "    - Task names are normalized to lowercase dash form"
-    echo "    - Repo-specific environment symlinks are created when their sources exist"
+    echo "    - No .env* file is linked or copied into a worktree; a command reads the"
+    echo "      main checkout's file by explicit path (see the header of this script)"
     echo "    - The shared agent workflow uses the same directory and branch layout"
     echo "    - Sessions are completely isolated - no conflicts between them"
     echo "    - When done, push the branch and open a pull request; it merges on green"
@@ -217,13 +211,31 @@ add_worktree_trust() {
     fi
 }
 
+# Remove .env* symlinks that an earlier version of this helper created in the worktree
+# root, and report a regular .env* file there without touching it. Returns non-zero
+# when a regular .env* file remains.
+remove_env_links() {
+    local worktree_dir=$1
+    local entry
+    local remaining=0
+
+    for entry in "$worktree_dir"/.env "$worktree_dir"/.env.*; do
+        if [ -L "$entry" ]; then
+            rm -f "$entry"
+            print_success "Removed environment file link $(basename "$entry")"
+        elif [ -e "$entry" ]; then
+            print_warning "$entry is a regular file; a worktree should hold no environment file"
+            remaining=1
+        fi
+    done
+
+    return "$remaining"
+}
+
 create_repo_symlinks() {
     local worktree_dir=$1
 
-    link_repo_file "$PROJECT_DIR/.env" "$worktree_dir/.env" ".env from main repository"
-    link_repo_file "$PROJECT_DIR/.env.cloud" "$worktree_dir/.env.cloud" ".env.cloud from main repository"
-    link_repo_file "$PROJECT_DIR/.env.r2" "$worktree_dir/.env.r2" ".env.r2 from main repository"
-    link_repo_file "$PROJECT_DIR/.env.agents" "$worktree_dir/.env.agents" ".env.agents from main repository"
+    remove_env_links "$worktree_dir" || true
     link_repo_path "$PROJECT_DIR/infrastructure/.working" "$worktree_dir/infrastructure/.working" "infrastructure/.working from main repository"
 }
 

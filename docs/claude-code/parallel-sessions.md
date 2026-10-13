@@ -27,7 +27,19 @@ This enables running multiple agent sessions on different tasks simultaneously.
 
 The canonical shared root is `~/.manyfold-worktrees/<checkout>/<task-name>`, where `<checkout>` is the directory name of the main checkout (the helper derives it, so two checkouts of this tree keep their worktrees apart). Use `./scripts/worktree-session.sh` as the shared helper.
 
-`ws start` creates the worktree, feature branch, and repo-specific environment symlinks when their source files exist. For feature work, start from the main repo with the `dev-workflow` skill first, then continue from the worktree it creates.
+`ws start` creates the worktree and the feature branch. It links or copies no `.env*` file into the worktree, so a worktree holds no environment file; `start` and `switch` remove `.env*` links that an earlier version of the helper created.
+
+A command in a worktree that needs an environment value reads the main checkout's file by explicit path at the point of use:
+
+```bash
+main="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
+some-tool --env-file "$main/.env.cloud" ...                                   # pass the path
+HCLOUD_TOKEN="$(sed -n 's/^HCLOUD_TOKEN=//p' "$main/.env.cloud")" hcloud server list   # one variable, one command
+```
+
+Do not source a whole environment file into an agent's shell.
+
+For feature work, start from the main repo with the `dev-workflow` skill first, then continue from the worktree it creates.
 
 ## Quick Start
 
