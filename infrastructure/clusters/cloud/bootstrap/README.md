@@ -77,7 +77,9 @@ cp terraform.tfvars.example terraform.tfvars
 
 The instance repository keeps both files outside the tree, in the git-ignored
 `infrastructure/.working/cloud/bootstrap/`, and passes them with `-backend-config` and
-`-var-file` (steps 4 and 5).
+`-var-file` (steps 4 and 5). A Git worktree holds no `infrastructure/.working/`: from a
+worktree, pass the main checkout's files by absolute path
+([parallel sessions](../../../../docs/claude-code/parallel-sessions.md)).
 
 ### 2. Set environment variables
 

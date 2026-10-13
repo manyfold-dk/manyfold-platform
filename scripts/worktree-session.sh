@@ -28,6 +28,15 @@
 #   HCLOUD_TOKEN="$(sed -n 's/^HCLOUD_TOKEN=//p' "$main/.env.cloud")" hcloud server list
 #
 # Do not source a whole environment file into an agent's shell.
+#
+# OpenTofu working files: the helper also does not link the main checkout's
+# infrastructure/.working/ into a worktree, because it holds backend.hcl with the state
+# backend's credentials. On start and switch it removes an infrastructure/.working link
+# that an earlier version of this helper created. A tofu run from a worktree passes the
+# main checkout's files by explicit path, read at the point of use:
+#
+#   tofu init -backend-config="$main/infrastructure/.working/cloud/bootstrap/backend.hcl"
+#   tofu plan -var-file="$main/infrastructure/.working/cloud/bootstrap/terraform.tfvars"
 
 set -e
 
@@ -72,26 +81,6 @@ normalize_task_name() {
     echo "$1" \
         | tr '[:upper:]' '[:lower:]' \
         | sed -E 's#[[:space:]/]+#-#g; s#[^a-z0-9._-]#-#g; s#-+#-#g; s#^-##; s#-$##'
-}
-
-link_repo_path() {
-    local source_path=$1
-    local target_path=$2
-    local description=$3
-
-    if [ ! -e "$source_path" ]; then
-        return 0
-    fi
-
-    mkdir -p "$(dirname "$target_path")"
-
-    if [ -e "$target_path" ] && [ ! -L "$target_path" ]; then
-        print_warning "Skipped $description because $target_path already exists and is not a symlink"
-        return 0
-    fi
-
-    ln -sfn "$source_path" "$target_path"
-    print_success "Linked $description"
 }
 
 find_session_dir() {
@@ -150,8 +139,9 @@ show_help() {
     echo "    - Each session creates a worktree in: ${WORKTREE_BASE}/<task-name>"
     echo "    - Each session gets its own branch: feature/<task-name>"
     echo "    - Task names are normalized to lowercase dash form"
-    echo "    - No .env* file is linked or copied into a worktree; a command reads the"
-    echo "      main checkout's file by explicit path (see the header of this script)"
+    echo "    - No .env* file and no infrastructure/.working/ is linked or copied into"
+    echo "      a worktree; a command reads the main checkout's file by explicit path"
+    echo "      (see the header of this script)"
     echo "    - The shared agent workflow uses the same directory and branch layout"
     echo "    - Sessions are completely isolated - no conflicts between them"
     echo "    - When done, push the branch and open a pull request; it merges on green"
@@ -211,32 +201,25 @@ add_worktree_trust() {
     fi
 }
 
-# Remove .env* symlinks that an earlier version of this helper created in the worktree
-# root, and report a regular .env* file there without touching it. Returns non-zero
-# when a regular .env* file remains.
-remove_env_links() {
+# Remove the links that an earlier version of this helper created in the worktree:
+# .env* in the worktree root and infrastructure/.working. Report a regular file or
+# directory at one of these paths without touching it. Returns non-zero when one remains.
+remove_credential_links() {
     local worktree_dir=$1
     local entry
     local remaining=0
 
-    for entry in "$worktree_dir"/.env "$worktree_dir"/.env.*; do
+    for entry in "$worktree_dir"/.env "$worktree_dir"/.env.* "$worktree_dir/infrastructure/.working"; do
         if [ -L "$entry" ]; then
             rm -f "$entry"
-            print_success "Removed environment file link $(basename "$entry")"
+            print_success "Removed credential link ${entry#"$worktree_dir"/}"
         elif [ -e "$entry" ]; then
-            print_warning "$entry is a regular file; a worktree should hold no environment file"
+            print_warning "$entry is not a link; a worktree should hold no credential file"
             remaining=1
         fi
     done
 
     return "$remaining"
-}
-
-create_repo_symlinks() {
-    local worktree_dir=$1
-
-    remove_env_links "$worktree_dir" || true
-    link_repo_path "$PROJECT_DIR/infrastructure/.working" "$worktree_dir/infrastructure/.working" "infrastructure/.working from main repository"
 }
 
 start_session() {
@@ -292,7 +275,7 @@ start_session() {
 
     add_worktree_trust "$worktree_dir"
 
-    create_repo_symlinks "$worktree_dir"
+    remove_credential_links "$worktree_dir" || true
 
     print_success "Session '$task_name' ready!"
     echo ""
@@ -358,7 +341,7 @@ switch_session() {
 
     print_success "Switching to session: $task_name"
     print_info "Opening new shell in: $worktree_dir"
-    create_repo_symlinks "$worktree_dir"
+    remove_credential_links "$worktree_dir" || true
     echo ""
     print_info "Launch your agent from this worktree after the shell opens."
     echo ""
