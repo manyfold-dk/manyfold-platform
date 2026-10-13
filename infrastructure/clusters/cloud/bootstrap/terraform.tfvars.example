@@ -39,9 +39,10 @@ domain                = "<domain>"
 api_subdomain         = "<api-subdomain>"      # Kubernetes API at <api-subdomain>.<domain>
 internal_subdomain    = "<internal-subdomain>" # registry mirrors at mirror-*.<internal-subdomain>.<domain>
 
-# Gateway (the external IP of the Cilium Gateway load balancer). The address
-# exists only after the cluster runs: leave gateway_ip unset on the first apply
-# and set it afterwards (README.md "Registry Mirrors").
+# Gateway (the load balancer address the nodes use to reach the registry
+# gateway, the Cilium Gateway; public or private depending on the installation's
+# network). The address exists only after the cluster runs: leave gateway_ip
+# unset on the first apply and set it afterwards (README.md "Registry Mirrors").
 # gateway_ip = "<gateway-ip>"
 
 # Object storage (Cloudflare R2)
