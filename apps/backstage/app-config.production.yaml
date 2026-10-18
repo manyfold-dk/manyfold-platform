@@ -34,6 +34,10 @@ integrations:
 
 auth:
   environment: production
+  # The auth backend installs its session middleware only with a secret; the OIDC
+  # login needs a session to carry its state between /start and the callback.
+  session:
+    secret: ${AUTH_SESSION_SECRET}
   # app-config.yaml enables the guest provider for local development; the
   # backend does not load its module outside NODE_ENV=development.
   providers:
