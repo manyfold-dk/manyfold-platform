@@ -4,7 +4,7 @@ kind: Kustomization
 # Backstage base: the developer portal and its cache database. The installation overlay
 # pins the image tag, mounts app-config.instance.yaml, provides the Secrets
 # backstage-postgres, backstage-github-token, backstage-oidc and the pull secret
-# ghcr-credentials-backstage, and adds the route.
+# ghcr-credentials, and adds the route.
 
 labels:
   - includeTemplates: true

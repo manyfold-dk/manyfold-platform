@@ -120,7 +120,7 @@ The installation's overlay adds:
 - the image tag, with a Kustomize `images:` entry;
 - `app-config.instance.yaml`, mounted at `/app/instance/`, and the extra `--config` argument;
 - the Secrets `backstage-postgres`, `backstage-github-token`, `backstage-oidc` and the pull
-  secret `ghcr-credentials-backstage`;
+  secret `ghcr-credentials`;
 - the route and `pod-security.kubernetes.io/enforce`.
 
 ## Known quirk

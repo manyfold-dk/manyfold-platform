@@ -23,8 +23,9 @@ spec:
     spec:
       serviceAccountName: backstage
       automountServiceAccountToken: false
+      # The installation's rotation script keeps one pull Secret of this name per namespace.
       imagePullSecrets:
-        - name: ghcr-credentials-backstage
+        - name: ghcr-credentials
       # PodSecurity restricted. uid 1000 is the USER baked into the image
       # (apps/backstage/Dockerfile).
       securityContext:
@@ -36,13 +37,14 @@ spec:
       containers:
         - name: backstage
           image: ghcr.io/manyfold-dk/manyfold-platform/backstage
+          # The installation appends `--config /app/instance/app-config.instance.yaml` to
+          # args; command keeps the entrypoint whole when args change.
+          command: ["node", "packages/backend"]
           args:
-            - packages/backend
             - --config
             - app-config.yaml
             - --config
             - app-config.production.yaml
-          command: ["node"]
           ports:
             - containerPort: 7007
               name: http
