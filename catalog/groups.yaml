@@ -1,0 +1,12 @@
+# One Group per identity-provider group that exists; no organisation chart is invented
+# (ADR-0060, D3). Members are not imported: sign-in resolves to the group memberships.
+# A group that owns nothing in this repository is declared by the instance repository.
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: platform-operators
+  title: Platform operators
+  description: The people who run the platform; the Keycloak group of the same name. Owner of everything the platform and the baseline ship.
+spec:
+  type: team
+  children: []

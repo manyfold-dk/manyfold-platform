@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: platform
+  title: Platform
+  description: The hosting platform and what it ships.
+spec:
+  owner: platform-operators
+---
+# The systems under this domain are each tenant's workloads. The instance repository
+# declares them; this repository names no tenant.
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: tenants
+  title: Tenants
+  description: Workloads hosted on the platform, each from a tenant's own repository.
+spec:
+  owner: platform-operators

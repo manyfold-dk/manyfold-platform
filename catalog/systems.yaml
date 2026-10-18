@@ -1,0 +1,52 @@
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: hosting-platform
+  title: Hosting platform
+  description: The Kubernetes hosting platform -- this reference installation and the private instance that reads it at a pinned commit.
+  tags:
+    - kubernetes
+    - gitops
+spec:
+  domain: platform
+  owner: platform-operators
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: estate-baseline
+  title: Estate baseline
+  description: The shared baseline for every repository in the estate -- a public half with policy, tooling and reusable CI, and a private half with the estate's values.
+spec:
+  domain: platform
+  owner: platform-operators
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: solution
+  title: Solution
+  description: The solution umbrella -- strategy, architecture decisions, roadmap and cross-repository plans.
+spec:
+  domain: platform
+  owner: platform-operators
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: operations
+  title: Operations
+  description: The operations automation agent that answers the platform's alerts within a policy.
+spec:
+  domain: platform
+  owner: platform-operators
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: applications
+  title: Applications
+  description: The applications the platform runs for itself -- the website, the accounting connector, the Slack bot and synthetic monitoring.
+spec:
+  domain: platform
+  owner: platform-operators

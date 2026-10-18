@@ -1,0 +1,25 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: slack-bot
+  title: Slack bot
+  description: The platform's operator channel in Slack -- alerts, deployment results, a health digest and an approval flow for restarts.
+  annotations:
+    github.com/project-slug: manyfold-dk/manyfold-platform
+    backstage.io/source-location: url:https://github.com/manyfold-dk/manyfold-platform/tree/main/apps/slack-bot/
+  tags:
+    - node
+    - typescript
+    - slack
+  links:
+    - url: https://github.com/manyfold-dk/manyfold-platform/tree/main/apps/slack-bot
+      title: Source
+      icon: github
+    - url: https://github.com/manyfold-dk/manyfold-platform/blob/main/apps/slack-bot/README.md
+      title: README
+      icon: docs
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-operators
+  system: applications
