@@ -75,6 +75,11 @@ spec:
                 secretKeyRef:
                   name: backstage-oidc
                   key: AUTH_OIDC_CLIENT_SECRET
+            - name: AUTH_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-oidc
+                  key: AUTH_SESSION_SECRET
             # Placeholder; app-config.instance.yaml sets the realm's metadata URL.
             - name: AUTH_OIDC_METADATA_URL
               value: http://localhost/.well-known/openid-configuration

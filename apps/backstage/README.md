@@ -64,6 +64,7 @@ production file reads these environment variables:
 | `AUTH_OIDC_METADATA_URL` | The realm's `.well-known/openid-configuration` | Placeholder `http://localhost/.well-known/openid-configuration` |
 | `AUTH_OIDC_CLIENT_ID` | OIDC client | `backstage` |
 | `AUTH_OIDC_CLIENT_SECRET` | OIDC client secret | Secret `backstage-oidc`, key `AUTH_OIDC_CLIENT_SECRET` |
+| `AUTH_SESSION_SECRET` | `auth.session.secret`: signs the session cookie the OIDC login needs | Secret `backstage-oidc`, key `AUTH_SESSION_SECRET` |
 | `NODE_OPTIONS` | Heap limit below the container's memory limit | `--max-old-space-size=1536` |
 
 A third file, `app-config.instance.yaml`, is not in this repository. The installation mounts it
