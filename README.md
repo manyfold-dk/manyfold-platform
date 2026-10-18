@@ -143,6 +143,7 @@ compositions ([`infrastructure/crossplane/`](infrastructure/crossplane/README.md
 | Path | What it is |
 |---|---|
 | `apps/website/` | The public site and the operator console in one image: a Quarkus backend serving a Vue 3 application, with health aggregation, alert and pipeline webhooks, and restarts ([README](apps/website/README.md)) |
+| `apps/backstage/` | The developer portal: a Backstage app whose catalog reads the platform's components from Git, with OIDC sign-in and a cache database ([README](apps/backstage/README.md)) |
 | `apps/slack-bot/` | The operator channel in Slack: alerts, deployments, a health digest, and an approval flow for restarts ([README](apps/slack-bot/README.md)) |
 | `apps/synthetic/` | Synthetic monitoring from two vantage points: Playwright journeys in a CronJob and an edge probe Worker, pushing shared metrics to a Pushgateway ([README](apps/synthetic/README.md)) |
 | `apps/accounting-mcp/` | An MCP connector and REST passthrough for an accounting API, with an idempotent, audited write ledger ([README](apps/accounting-mcp/README.md)) |

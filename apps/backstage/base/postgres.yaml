@@ -1,0 +1,109 @@
+# Backstage's database. Deliberately no PersistentVolumeClaim: the database is not
+# backed up (ADR 0060, D7), and an emptyDir is the proof-of-concept form of that. A
+# container restart keeps the emptyDir. A replaced Pod starts empty: the backend
+# re-ingests the catalog from Git, and scaffolder task history, user settings and
+# notifications are lost, which D7 accepts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage-postgres
+  namespace: backstage
+  labels:
+    app: backstage-postgres
+    app.kubernetes.io/name: backstage-postgres
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backstage-postgres
+  template:
+    metadata:
+      labels:
+        app: backstage-postgres
+        app.kubernetes.io/name: backstage-postgres
+    spec:
+      automountServiceAccountToken: false
+      # PodSecurity restricted. uid 1001 is the USER of the Bitnami image.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgresql
+          # Pinned by tag and digest (ADR-0055, decision 1).
+          image: docker.io/bitnamilegacy/postgresql:17.6.0-debian-12-r4@sha256:926356130b77d5742d8ce605b258d35db9b62f2f8fd1601f9dbaef0c8a710a8d
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          env:
+            - name: POSTGRESQL_USERNAME
+              value: backstage
+            - name: POSTGRESQL_DATABASE
+              value: backstage
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-postgres
+                  key: POSTGRES_PASSWORD
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/postgresql
+            # The image writes its rendered configuration and runtime files here.
+            - name: tmp
+              mountPath: /tmp
+            - name: conf
+              mountPath: /opt/bitnami/postgresql/conf
+            - name: run
+              mountPath: /opt/bitnami/postgresql/tmp
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pg_isready -U backstage -d backstage -h localhost -p 5432"]
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pg_isready -U backstage -d backstage -h localhost -p 5432"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: conf
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage-postgres
+  namespace: backstage
+  labels:
+    app: backstage-postgres
+    app.kubernetes.io/name: backstage-postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: backstage-postgres
+  ports:
+    - port: 5432
+      targetPort: postgresql
+      protocol: TCP
+      name: postgresql

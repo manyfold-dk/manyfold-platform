@@ -20,24 +20,24 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           repository: manyfold-dk/estate-baseline
-          ref: 6e3cd0567368f6f3d9f35bd98bfdb3b2be1e637e # v1.2.0
+          ref: e59d163bf3f02d61f70e6484046df4bd97c21c9d # v1.4.1
           path: .estate-baseline
           persist-credentials: false
-      - uses: manyfold-dk/estate-baseline/.github/actions/install-scanners@6e3cd0567368f6f3d9f35bd98bfdb3b2be1e637e # v1.2.0
+      - uses: manyfold-dk/estate-baseline/.github/actions/install-scanners@e59d163bf3f02d61f70e6484046df4bd97c21c9d # v1.4.1
       - run: |
           set -eu
           mv .estate-baseline "$RUNNER_TEMP/estate-baseline"
           "$RUNNER_TEMP/estate-baseline/scripts/publish-check/publish-check.sh" . --names none --allow .publish-allow.tsv
 
   secret-scan:
-    uses: manyfold-dk/estate-baseline/.github/workflows/secret-scan.yml@6e3cd0567368f6f3d9f35bd98bfdb3b2be1e637e # v1.2.0
+    uses: manyfold-dk/estate-baseline/.github/workflows/secret-scan.yml@e59d163bf3f02d61f70e6484046df4bd97c21c9d # v1.4.1
 
   docs-link-check:
-    uses: manyfold-dk/estate-baseline/.github/workflows/docs-link-check.yml@6e3cd0567368f6f3d9f35bd98bfdb3b2be1e637e # v1.2.0
+    uses: manyfold-dk/estate-baseline/.github/workflows/docs-link-check.yml@e59d163bf3f02d61f70e6484046df4bd97c21c9d # v1.4.1
 
   actionlint:
     # Every workflow under .github/workflows/, with shellcheck over the run: scripts.
-    uses: manyfold-dk/estate-baseline/.github/workflows/actionlint.yml@6e3cd0567368f6f3d9f35bd98bfdb3b2be1e637e # v1.2.0
+    uses: manyfold-dk/estate-baseline/.github/workflows/actionlint.yml@e59d163bf3f02d61f70e6484046df4bd97c21c9d # v1.4.1
 
   render:
     # Every Kustomize directory must build.
@@ -129,6 +129,27 @@ jobs:
         env:
           TEST_SCRIPT: ${{ matrix.test }}
       - run: pnpm build
+
+  backstage:
+    # The Backstage app is a Yarn 4 workspace, not a pnpm application: type-check, lint, unit
+    # tests and the backend bundle the image is built from.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backstage
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn tsc
+      - run: yarn lint
+      - run: yarn test
+      - run: yarn build:backend
 
   java-apps:
     # Each Java application's tests and lint (Checkstyle, SpotBugs, PMD, format check), built

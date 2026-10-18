@@ -24,7 +24,7 @@ Run the checks CI runs ([`ci.yml`](.github/workflows/ci.yml)) for what you chang
 | Anything | The publication gate, shapes only, from a checkout of `estate-baseline` at the commit `ci.yml` pins: `<estate-baseline>/scripts/publish-check/publish-check.sh . --names none --allow .publish-allow.tsv`. A hit is a stop: reword, or add a reasoned row to `.publish-allow.tsv` only for a shape the repository is allowed to carry |
 | A Kustomize directory | `kubectl kustomize <dir>` builds for every directory holding a `kustomization.yaml` |
 | An OpenTofu module or root | `tofu fmt -check -recursive`, `tofu init -backend=false`, `tofu validate`, and `tofu test` where the module has `tests/` |
-| An application under `apps/` | Its own build, lint and tests, as its README lists them ([accounting-mcp](apps/accounting-mcp/README.md), [slack-bot](apps/slack-bot/README.md), [synthetic](apps/synthetic/README.md), [website](apps/website/README.md)) |
+| An application under `apps/` | Its own build, lint and tests, as its README lists them ([accounting-mcp](apps/accounting-mcp/README.md), [backstage](apps/backstage/README.md), [slack-bot](apps/slack-bot/README.md), [synthetic](apps/synthetic/README.md), [website](apps/website/README.md)) |
 | `build/` | `mvn -B -ntp -f build/parent/pom.xml validate`, then `mvn verify` in each Java application |
 | Markdown | Relative links and anchors resolve (CI runs lychee offline; `.lycheeignore` lists the accepted exceptions) |
 

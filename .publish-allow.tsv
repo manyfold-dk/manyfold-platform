@@ -264,3 +264,16 @@ repository path	docs/plans/
 repository path	docs/specs/
 repository path	docs/runbooks/
 # END baseline-agent allow
+repository path	apps/backstage/
+# Upstream versions (ADR-0055), pinned by the Backstage app's manifests and lockfile
+exact version	*	apps/backstage/package.json
+exact version	*	apps/backstage/packages/app/package.json
+exact version	*	apps/backstage/packages/backend/package.json
+exact version	*	apps/backstage/yarn.lock
+# The Backstage release the app was generated from, which the Backstage CLI reads
+exact version	*	apps/backstage/backstage.json
+# The upstream PostgreSQL image tag, pinned with its digest (ADR-0055 decision 1)
+exact version	*	apps/backstage/base/postgres.yaml
+# SVG path coordinates in the generated logos read as versions
+exact version	*	apps/backstage/packages/app/src/modules/nav/LogoFull.tsx
+exact version	*	apps/backstage/packages/app/src/modules/nav/LogoIcon.tsx

@@ -8,6 +8,7 @@ reason: "this repository builds and deploys no image; the installation's overlay
 reconverge: "when the checker reads the rendered workload instead of the base file, or when these bases no longer name an image that an installation builds"
 paths:
   - apps/accounting-mcp/base/deployment.yaml
+  - apps/backstage/base/deployment.yaml
   - apps/slack-bot/base/deployment.yaml
   - apps/website/base/backend-deployment.yaml
 ---
@@ -29,20 +30,24 @@ Accepted (2026-10-03), on the owner's decision. A recorded deviation from the ba
 conformance rule `manifest.image-digest`, in the form the
 [conformance README](https://github.com/manyfold-dk/estate-baseline/blob/main/scripts/conformance/README.md#deviation-adr-contract)
 prescribes. The frontmatter above is what the conformance checker parses. Its `paths:` limits
-the deviation to the three files it names.
+the deviation to the four files it names.
 
 ## Context
 
 The rule `manifest.image-digest` requires every workload `image:` line to be `@sha256:`-pinned.
 The checker reads each manifest file as it is, not the workload that Kustomize renders.
 
-Three application bases in this repository name an image without a tag or a digest:
+Four application bases in this repository name an image without a tag or a digest:
 
 | File | Image name |
 |---|---|
 | `apps/accounting-mcp/base/deployment.yaml` | `.../accounting-mcp` |
+| `apps/backstage/base/deployment.yaml` | `.../backstage` |
 | `apps/slack-bot/base/deployment.yaml` | `.../slack-bot` |
 | `apps/website/base/backend-deployment.yaml` | `.../website-backend` |
+
+The Backstage base also declares an upstream PostgreSQL image, pinned by tag and digest, so
+`paths:` names its deployment file alone and the rule still checks `postgres.yaml`.
 
 An installation's CI builds these images from the sources under `apps/`. The installation's
 overlay then sets the tag, or the tag and digest, with a Kustomize `images:` entry. This
@@ -53,7 +58,7 @@ tag or digest of an image built from this estate's source (ADR-0054 D4,
 
 ## Decision
 
-1. The three application bases above name their image without a tag or a digest. The
+1. The four application bases above name their image without a tag or a digest. The
    conformance finding in those files is an accepted deviation.
 2. The installation overlay that deploys one of these applications sets the image reference. The
    installation decides between a per-build tag and a `<tag>@<digest>` pin. The installation's
@@ -75,7 +80,7 @@ belongs, and the installation's conformance check is the place where it is enfor
 **Positive:**
 
 - A base stays usable by any installation: it names the image, and the overlay names the build.
-- The deviation covers three files. The checker still reports an unpinned image in every other
+- The deviation covers four files. The checker still reports an unpinned image in every other
   file of this repository, including a new application base.
 
 **Negative:**
