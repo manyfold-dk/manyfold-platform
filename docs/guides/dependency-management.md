@@ -25,8 +25,8 @@ Dependencies are categorized by how they are updated:
 
 | Category | Tool | Automation | ADR-0025 Layer |
 |----------|------|------------|----------------|
-| npm packages | pnpm | Renovate (weekly PRs, auto-merge devDeps) | L4 |
-| Maven dependencies | Maven | Renovate (weekly PRs, auto-merge test deps) | L4 |
+| npm packages | pnpm | Renovate (weekly grouped PRs, no auto-merge here) | L4 |
+| Maven dependencies | Maven | Renovate (weekly grouped PRs, no auto-merge here) | L4 |
 | Helm charts | ArgoCD | Renovate (weekly PRs via custom regex manager) | L3 |
 | Container images | CI deploy jobs | Image tag bump in Git by the deploy job | L5 |
 | OpenTofu providers | OpenTofu | Renovate (weekly PRs via terraform manager) | L6 |
@@ -41,7 +41,7 @@ Renovate runs as a **self-hosted CronJob** in the cloud cluster's `platform-reno
 - Runs every 4 hours (`0 */4 * * *`)
 - Schedule/grouping rules defined in `.github/renovate.json` (weekends, Europe/Copenhagen)
 - Groups related dependencies together
-- Auto-merges minor/patch updates for dev dependencies
+- Auto-merges minor/patch updates for dev dependencies where a repository's configuration allows it; this repository's does not (see [This Repository](#this-repository))
 - Creates separate PRs for major updates
 - Waits 3 days before proposing updates (stability period)
 
@@ -53,20 +53,35 @@ Renovate runs as a **self-hosted CronJob** in the cloud cluster's `platform-reno
 
 ### This Repository
 
-This repository's [`.github/renovate.json`](../../.github/renovate.json) enables only the
-`kubernetes` manager, for the plain manifests that pin an upstream image by tag and digest:
-the operations Redis, the registry and its mirrors, the synthetic-monitoring Caddy and the
-KSOPS component's init container. An installation runs these pins as they are and does not
-override them (ADR-0055), so a Renovate pull request here is the only place such an image
-changes.
+This repository's [`.github/renovate.json`](../../.github/renovate.json) enables these
+managers and no others:
+
+| Manager | What it updates |
+|---|---|
+| `kubernetes` | The plain manifests that pin an upstream image by tag and digest: the operations Redis, the registry and its mirrors, the synthetic-monitoring Caddy and the KSOPS component's init container |
+| `github-actions` | The actions and reusable workflows, pinned by digest with their release tag |
+| `npm` | `apps/slack-bot`, `apps/synthetic` and `apps/website/frontend`: `package.json` and `pnpm-lock.yaml` |
+| `maven` | `apps/accounting-mcp/pom.xml`, `apps/website/backend/pom.xml` and the parent they inherit their versions from, `build/parent/pom.xml` |
+| Regex | The `estate-baseline` checkout in `ci.yml`, and the ArgoCD CLI, SOPS, age and kustomize version ARGs in `.devcontainer/Dockerfile` |
+
+An installation does not override these files. It runs the image pins as they are (ADR-0055),
+and it carries the applications and the devcontainer byte for byte (ADR-0054). A Renovate pull
+request here is therefore the only place these versions change.
 
 - Renovate runs here only when the installation's executor lists this repository; onboarding
   is off, so this file must exist first.
-- A merged bump reaches a cluster when the installation moves its pin to a commit that
-  contains it. The installation's render harness shows the image change in that move.
-- A bump needs no new `.publish-allow.tsv` row. The Caddy manifest allows any version, and
-  the other tags (`7-alpine`, `2`, `3.21`) carry no three-part version for the gate to match;
-  Renovate keeps a tag's precision.
+- A merged bump reaches an installation when the installation moves its pin to a commit that
+  contains it. The installation's render harness shows an image change in that move, and the
+  installation's byte-equal check confirms the copied files.
+- The npm and Maven updates come as weekly grouped pull requests (the `estate-baseline`
+  preset), and the devcontainer tools as one weekly `Dev Tooling` pull request. None of them
+  auto-merges: the application builds and tests (`node-apps`, `java-apps`, `maven`) are not
+  required status checks, so GitHub's auto-merge would merge a bump that fails them.
+  Merge an update after those checks pass.
+- A bump needs no new `.publish-allow.tsv` row. The Caddy manifest, the application manifests
+  and lockfiles and the devcontainer `Dockerfile` allow any version, and the other image tags
+  (`7-alpine`, `2`, `3.21`) carry no three-part version for the gate to match; Renovate keeps a
+  tag's precision.
 
 ### Manual Trigger
 
@@ -127,8 +142,10 @@ Renovate detects version ARGs in `.devcontainer/Dockerfile` for tools with GitHu
 - ArgoCD CLI
 - SOPS
 - age
+- kustomize
 
 Updates appear as grouped PRs labeled `dev-tooling`. After merging, rebuild the devcontainer.
+An installation receives the change when it moves its pin.
 
 ## Manual Updates
 
@@ -209,9 +226,9 @@ See [docs/runbooks/talos/upgrade-os.md](../runbooks/talos/upgrade-os.md) for the
 
 | Component | Policy |
 |-----------|--------|
-| npm devDependencies | Auto-merge minor/patch |
+| npm devDependencies | Manual review (no auto-merge here) |
 | npm dependencies | Manual review |
-| Maven test deps | Auto-merge patch |
+| Maven test deps | Manual review (no auto-merge here) |
 | Maven deps | Manual review |
 | Helm charts | Manual review |
 | Infrastructure | Manual review, staged rollout |

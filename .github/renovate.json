@@ -1,8 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "This repository pins upstream images by tag and digest in plain manifests, and an installation runs those pins as they are (ADR-0055). It pins every action and reusable workflow by digest with its release tag. Renovate keeps both current. Only the kubernetes and github-actions managers, and the estate-baseline checkout's regex manager, are enabled: other dependencies are out of this configuration's scope.",
+  "description": "This repository pins upstream images by tag and digest in plain manifests, and an installation runs those pins as they are (ADR-0055). It pins every action and reusable workflow by digest with its release tag. It holds the application sources and the devcontainer that an installation must carry byte for byte (ADR-0054), so their npm, Maven and devcontainer tool updates land here and reach an installation when it moves its pin. Renovate keeps all of these current. Only the kubernetes, github-actions, npm and maven managers and the regex managers below are enabled: other dependencies are out of this configuration's scope.",
   "extends": ["github>manyfold-dk/estate-baseline//renovate/default.json"],
-  "enabledManagers": ["kubernetes", "github-actions", "custom.regex"],
+  "enabledManagers": ["kubernetes", "github-actions", "npm", "maven", "custom.regex"],
   "kubernetes": {
     "description": "The plain manifests that pin an upstream image by tag and digest.",
     "fileMatch": [
@@ -22,13 +22,80 @@
       ],
       "depNameTemplate": "manyfold-dk/estate-baseline",
       "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "description": "Detect ArgoCD CLI version in Dockerfile",
+      "fileMatch": ["^\\.devcontainer/Dockerfile$"],
+      "matchStrings": ["ARG ARGOCD_VERSION=(?<currentValue>[\\d.]+)"],
+      "depNameTemplate": "argoproj/argo-cd",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Detect SOPS version in Dockerfile",
+      "fileMatch": ["^\\.devcontainer/Dockerfile$"],
+      "matchStrings": ["ARG SOPS_VERSION=(?<currentValue>[\\d.]+)"],
+      "depNameTemplate": "getsops/sops",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Detect age version in Dockerfile",
+      "fileMatch": ["^\\.devcontainer/Dockerfile$"],
+      "matchStrings": ["ARG AGE_VERSION=(?<currentValue>[\\d.]+)"],
+      "depNameTemplate": "FiloSottile/age",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Detect kustomize version in Dockerfile",
+      "fileMatch": ["^\\.devcontainer/Dockerfile$"],
+      "matchStrings": ["ARG KUSTOMIZE_VERSION=(?<currentValue>[\\d.]+)"],
+      "depNameTemplate": "kubernetes-sigs/kustomize",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^kustomize/v(?<version>.*)$"
     }
   ],
+  "ignoreDeps": ["dk.manyfold:manyfold-app-parent"],
   "packageRules": [
     {
       "description": "The gate checkout and the estate-baseline actions and workflows move together: the publish-check job runs the checkout's gate with the action's scanners.",
       "matchPackageNames": ["manyfold-dk/estate-baseline"],
       "groupName": "estate-baseline"
+    },
+    {
+      "description": "The npm and maven managers update only the applications an installation carries byte for byte; the next rule enables those. The baseline preset groups their updates weekly.",
+      "matchManagers": ["npm", "maven"],
+      "enabled": false
+    },
+    {
+      "description": "The applications an installation carries byte for byte, and the parent POM the Java applications inherit their versions from.",
+      "matchManagers": ["npm", "maven"],
+      "matchFileNames": [
+        "apps/slack-bot/package.json",
+        "apps/synthetic/package.json",
+        "apps/website/frontend/package.json",
+        "apps/accounting-mcp/pom.xml",
+        "apps/website/backend/pom.xml",
+        "build/parent/pom.xml"
+      ],
+      "enabled": true
+    },
+    {
+      "description": "No automerge for npm or Maven updates, which overrides the baseline preset's devDependency and test-dependency automerge. The application builds and tests (node-apps, java-apps, maven) are not required status checks here, so GitHub's auto-merge would merge a bump that fails them.",
+      "matchManagers": ["npm", "maven"],
+      "automerge": false
+    },
+    {
+      "description": "Group devcontainer tool updates",
+      "matchFileNames": [".devcontainer/**"],
+      "groupName": "Dev Tooling",
+      "schedule": ["every weekend"],
+      "labels": ["dependencies", "dev-tooling"]
     }
   ]
 }
