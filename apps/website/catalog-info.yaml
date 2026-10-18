@@ -1,0 +1,26 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: website
+  title: Website
+  description: The public site and the operator console of the platform in one image -- a Quarkus backend that serves a Vue 3 single-page application and the API behind it.
+  annotations:
+    github.com/project-slug: manyfold-dk/manyfold-platform
+    backstage.io/source-location: url:https://github.com/manyfold-dk/manyfold-platform/tree/main/apps/website/
+  tags:
+    - java
+    - quarkus
+    - vue
+    - typescript
+  links:
+    - url: https://github.com/manyfold-dk/manyfold-platform/tree/main/apps/website
+      title: Source
+      icon: github
+    - url: https://github.com/manyfold-dk/manyfold-platform/blob/main/apps/website/README.md
+      title: README
+      icon: docs
+spec:
+  type: website
+  lifecycle: production
+  owner: platform-operators
+  system: applications

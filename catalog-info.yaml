@@ -1,0 +1,40 @@
+# This repository in the developer portal's catalog. The groups, domains and systems it
+# names are in catalog/, read through catalog/all.yaml.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: manyfold-platform
+  title: Manyfold platform
+  description: The public reference installation of a small Kubernetes platform -- everything not specific to one installation, read by the instance at a pinned commit.
+  annotations:
+    github.com/project-slug: manyfold-dk/manyfold-platform
+    backstage.io/source-location: url:https://github.com/manyfold-dk/manyfold-platform/tree/main/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - kubernetes
+    - argocd
+    - gitops
+    - crossplane
+    - opentofu
+    - talos
+  links:
+    - url: https://github.com/manyfold-dk/manyfold-platform
+      title: Repository
+      icon: github
+    - url: https://github.com/manyfold-dk/manyfold-platform/tree/main/docs/adr
+      title: Architecture decisions
+      icon: docs
+    - url: https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/adr/0054-public-platform-and-private-instance-repositories.md
+      title: The public and private split (ADR-0054)
+      icon: docs
+    - url: https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/architecture/platform-overview.md
+      title: Architecture overview
+      icon: docs
+    - url: https://github.com/manyfold-dk/manyfold-platform/blob/main/docs/runbooks/README.md
+      title: Runbooks
+      icon: docs
+spec:
+  type: gitops
+  lifecycle: production
+  owner: platform-operators
+  system: hosting-platform

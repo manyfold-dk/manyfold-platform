@@ -1,0 +1,25 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: synthetic-monitoring
+  title: Synthetic monitoring
+  description: Checks the platform's public fronts from two vantage points, a Playwright runner in the cluster and an edge probe outside it, and pushes the results to a Pushgateway.
+  annotations:
+    github.com/project-slug: manyfold-dk/manyfold-platform
+    backstage.io/source-location: url:https://github.com/manyfold-dk/manyfold-platform/tree/main/apps/synthetic/
+  tags:
+    - node
+    - typescript
+    - playwright
+  links:
+    - url: https://github.com/manyfold-dk/manyfold-platform/tree/main/apps/synthetic
+      title: Source
+      icon: github
+    - url: https://github.com/manyfold-dk/manyfold-platform/blob/main/apps/synthetic/README.md
+      title: README
+      icon: docs
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-operators
+  system: applications

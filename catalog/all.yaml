@@ -1,0 +1,17 @@
+# The entry point of this repository's catalog data. Backstage reads this Location and
+# resolves each relative target against the Location's own URL. See README.md beside it.
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: manyfold-platform-catalog
+  description: The groups, domains and systems of the platform, and the components this repository holds.
+spec:
+  targets:
+    - ./groups.yaml
+    - ./domains.yaml
+    - ./systems.yaml
+    - ../catalog-info.yaml
+    - ../apps/website/catalog-info.yaml
+    - ../apps/accounting-mcp/catalog-info.yaml
+    - ../apps/slack-bot/catalog-info.yaml
+    - ../apps/synthetic/catalog-info.yaml

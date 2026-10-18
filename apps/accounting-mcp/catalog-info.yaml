@@ -1,0 +1,25 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: accounting-mcp
+  title: Accounting connector
+  description: An MCP connector and REST passthrough for an accounting API, with an idempotent, audited write ledger.
+  annotations:
+    github.com/project-slug: manyfold-dk/manyfold-platform
+    backstage.io/source-location: url:https://github.com/manyfold-dk/manyfold-platform/tree/main/apps/accounting-mcp/
+  tags:
+    - java
+    - quarkus
+    - mcp
+  links:
+    - url: https://github.com/manyfold-dk/manyfold-platform/tree/main/apps/accounting-mcp
+      title: Source
+      icon: github
+    - url: https://github.com/manyfold-dk/manyfold-platform/blob/main/apps/accounting-mcp/README.md
+      title: README
+      icon: docs
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-operators
+  system: applications
