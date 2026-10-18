@@ -78,7 +78,7 @@ offering. It runs the way every other application on the platform runs:
 | Generic Helm values and catalog data | This repository, `platform/components/backstage/` and `catalog/` | Chart reference, resource requests, generic `app-config` fragments, the Domain, System, Group and Location entities |
 | Argo CD Application, hostname, OIDC client id, image reference, bucket name | The instance repository | Overlay values, as [ADR-0054](0054-public-platform-and-private-instance-repositories.md) requires |
 | Login | Keycloak, a new OIDC client in the operator realm | The Backstage OIDC provider; the client secret in the installation's secret store |
-| Ingress | The Envoy Gateway the installation already runs | One `HTTPRoute`; which gateway, see [open point (b)](#open-points-for-the-owner) |
+| Ingress | The Envoy Gateway the installation already exposes on its tailnet | One `HTTPRoute` on an internal hostname; no public DNS ([open point (b)](#open-points-for-the-owner), decided) |
 | GitHub access for the catalog and TechDocs | A read-only fine-grained token scoped to the organisation | In the installation's secret store, injected as an environment variable; see [open point (a)](#open-points-for-the-owner) |
 
 ### D3: The catalog model
@@ -170,10 +170,10 @@ Deliberately not done, each a sentence of the form "not done, because", not a we
 
 Two decisions precede the first change in the instance repository:
 
-| | Decision | Recommendation |
-|---|---|---|
-| (a) | A read-only fine-grained GitHub token for the catalog and TechDocs, scoped to the organisation with contents read on the catalogued repositories, stored in the installation's secret store like every other credential, revoked when the portal is torn down | Issue it for the proof of concept's duration only; the scaffolder's publish step needs write scopes and gets a second, shorter-lived token or the operator's own session, decided on day 2 |
-| (b) | A public hostname, or the portal stays behind the tailnet | Tailnet plus Keycloak, no public DNS: a proof of concept, and the estate's credential inventory already lists public exposure as a risk |
+| | Decision | Recommendation | State (2026-10-18) |
+|---|---|---|---|
+| (a) | A read-only fine-grained GitHub token for the catalog and TechDocs, scoped to the organisation with contents read on the catalogued repositories, stored in the installation's secret store like every other credential, revoked when the portal is torn down | Issue it for the proof of concept's duration only; the scaffolder's publish step needs write scopes and gets a second, shorter-lived token or the operator's own session, decided on day 2 | Open. The owner routed the issue to the estate's running token clean-up, which issues, stores and inventories it |
+| (b) | A public hostname, or the portal stays behind the tailnet | Tailnet plus Keycloak, no public DNS: a proof of concept, and the estate's credential inventory already lists public exposure as a risk | Decided: the portal gets an internal hostname on the tailnet, behind the Envoy Gateway the installation already exposes there; no public DNS |
 
 ## Rationale
 
