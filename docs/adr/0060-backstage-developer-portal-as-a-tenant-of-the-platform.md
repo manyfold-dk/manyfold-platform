@@ -79,7 +79,7 @@ offering. It runs the way every other application on the platform runs:
 | Argo CD Application, hostname, OIDC client id, image reference, bucket name | The instance repository | Overlay values, as [ADR-0054](0054-public-platform-and-private-instance-repositories.md) requires |
 | Login | Keycloak, a new OIDC client in the operator realm | The Backstage OIDC provider; the client secret in the installation's secret store |
 | Ingress | The Envoy Gateway the installation already exposes on its tailnet | One `HTTPRoute` on an internal hostname; no public DNS ([open point (b)](#open-points-for-the-owner), decided) |
-| GitHub access for the catalog and TechDocs | A read-only fine-grained token scoped to the organisation | In the installation's secret store, injected as an environment variable; see [open point (a)](#open-points-for-the-owner) |
+| GitHub access for the catalog and TechDocs | A read-only fine-grained token, contents read on all repositories of the organisation | In the installation's secret store, injected as an environment variable; see [open point (a)](#open-points-for-the-owner), decided |
 
 ### D3: The catalog model
 
@@ -172,7 +172,7 @@ Two decisions precede the first change in the instance repository:
 
 | | Decision | Recommendation | State (2026-10-18) |
 |---|---|---|---|
-| (a) | A read-only fine-grained GitHub token for the catalog and TechDocs, scoped to the organisation with contents read on the catalogued repositories, stored in the installation's secret store like every other credential, revoked when the portal is torn down | Issue it for the proof of concept's duration only; the scaffolder's publish step needs write scopes and gets a second, shorter-lived token or the operator's own session, decided on day 2 | Open. The owner routed the issue to the estate's running token clean-up, which issues, stores and inventories it |
+| (a) | A read-only fine-grained GitHub token for the catalog and TechDocs, scoped to all repositories of the organisation, current and future, with contents read, stored in the installation's secret store like every other credential, revoked when the portal is torn down | Issue it for the proof of concept's duration only; the scaffolder's publish step needs write scopes and gets a second, shorter-lived token or the operator's own session, decided on day 2 | Decided and issued 2026-10-18 by the owner, for 30 days, on all repositories of the organisation rather than the catalogued ones only; registered in the estate's credential register and stored as an encrypted Secret in the instance, which the change that creates the Application references |
 | (b) | A public hostname, or the portal stays behind the tailnet | Tailnet plus Keycloak, no public DNS: a proof of concept, and the estate's credential inventory already lists public exposure as a risk | Decided: the portal gets an internal hostname on the tailnet, behind the Envoy Gateway the installation already exposes there; no public DNS |
 
 ## Rationale
