@@ -130,6 +130,27 @@ jobs:
           TEST_SCRIPT: ${{ matrix.test }}
       - run: pnpm build
 
+  backstage:
+    # The Backstage app is a Yarn 4 workspace, not a pnpm application: type-check, lint, unit
+    # tests and the backend bundle the image is built from.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backstage
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn tsc
+      - run: yarn lint
+      - run: yarn test
+      - run: yarn build:backend
+
   java-apps:
     # Each Java application's tests and lint (Checkstyle, SpotBugs, PMD, format check), built
     # against the parent in build/parent. Dev Services start the databases the tests need.

@@ -1,0 +1,69 @@
+# Production configuration, loaded after app-config.yaml by the image's CMD.
+#
+# Every installation value is an environment variable. The installation mounts a
+# third file, app-config.instance.yaml, and appends it with
+# `--config /app/instance/app-config.instance.yaml`; that file carries what is
+# not a secret (the public base URL, the OIDC metadata URL, more catalog
+# locations). See README.md#configuration.
+
+app:
+  # Should be the same as backend.baseUrl when using the `app-backend` plugin.
+  baseUrl: ${APP_BASE_URL}
+
+backend:
+  baseUrl: ${APP_BASE_URL}
+  listen:
+    port: 7007
+  cors:
+    origin: ${APP_BASE_URL}
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
+  # config options: https://node-postgres.com/apis/client
+  database:
+    client: pg
+    connection:
+      host: ${POSTGRES_HOST}
+      port: ${POSTGRES_PORT}
+      user: ${POSTGRES_USER}
+      password: ${POSTGRES_PASSWORD}
+
+integrations:
+  github:
+    - host: github.com
+      token: ${GITHUB_TOKEN}
+
+auth:
+  environment: production
+  # app-config.yaml enables the guest provider for local development; the
+  # backend does not load its module outside NODE_ENV=development.
+  providers:
+    oidc:
+      production:
+        metadataUrl: ${AUTH_OIDC_METADATA_URL}
+        clientId: ${AUTH_OIDC_CLIENT_ID}
+        clientSecret: ${AUTH_OIDC_CLIENT_SECRET}
+        prompt: auto
+        signIn:
+          resolvers:
+            - resolver: emailMatchingUserEntityProfileEmail
+              dangerouslyAllowSignInWithoutUserInCatalog: true
+
+catalog:
+  rules:
+    - allow:
+        [Component, System, API, Resource, Location, Domain, Group, User, Template]
+  # Replaces the example locations of app-config.yaml.
+  locations:
+    - type: url
+      target: https://github.com/manyfold-dk/manyfold-platform/blob/main/catalog/all.yaml
+    - type: url
+      target: https://github.com/manyfold-dk/estate-baseline/blob/main/catalog-info.yaml
+
+# TechDocs is built outside Backstage; publishing to object storage comes later.
+techdocs:
+  builder: external
+  publisher:
+    type: local
+    local:
+      # The root filesystem is read-only in the cluster; /tmp is an emptyDir.
+      publishDirectory: /tmp/techdocs

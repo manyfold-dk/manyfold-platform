@@ -1,0 +1,115 @@
+# Backstage backend, which also serves the frontend. The installation overlay pins the
+# image tag (ADR-0058), mounts app-config.instance.yaml at /app/instance and appends it
+# to the arguments, and provides the three Secrets named below.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage
+  namespace: backstage
+  labels:
+    app: backstage
+    app.kubernetes.io/name: backstage
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: backstage
+  template:
+    metadata:
+      labels:
+        app: backstage
+        app.kubernetes.io/name: backstage
+    spec:
+      serviceAccountName: backstage
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-credentials-backstage
+      # PodSecurity restricted. uid 1000 is the USER baked into the image
+      # (apps/backstage/Dockerfile).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backstage
+          image: ghcr.io/manyfold-dk/manyfold-platform/backstage
+          args:
+            - packages/backend
+            - --config
+            - app-config.yaml
+            - --config
+            - app-config.production.yaml
+          command: ["node"]
+          ports:
+            - containerPort: 7007
+              name: http
+          env:
+            # Placeholder; app-config.instance.yaml sets the public base URL.
+            - name: APP_BASE_URL
+              value: http://localhost:7007
+            - name: POSTGRES_HOST
+              value: backstage-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              value: backstage
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-postgres
+                  key: POSTGRES_PASSWORD
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-github-token
+                  key: GITHUB_TOKEN
+            - name: AUTH_OIDC_CLIENT_ID
+              value: backstage
+            - name: AUTH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-oidc
+                  key: AUTH_OIDC_CLIENT_SECRET
+            # Placeholder; app-config.instance.yaml sets the realm's metadata URL.
+            - name: AUTH_OIDC_METADATA_URL
+              value: http://localhost/.well-known/openid-configuration
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=1536
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # Scaffolder working directory and the local TechDocs publisher.
+            - name: tmp
+              mountPath: /tmp
+          # The backend takes 20-60 s to start its plugins; liveness waits for it.
+          startupProbe:
+            httpGet:
+              path: /.backstage/health/v1/liveness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36
+          livenessProbe:
+            httpGet:
+              path: /.backstage/health/v1/liveness
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /.backstage/health/v1/readiness
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 2Gi
+            limits:
+              memory: 2Gi
+      volumes:
+        - name: tmp
+          emptyDir: {}
