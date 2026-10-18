@@ -215,7 +215,7 @@ and Crossplane.
 
 ## Decisions
 
-Thirty-eight architecture decision records in [`docs/adr/`](docs/adr/), published one by one with
+Thirty-nine architecture decision records in [`docs/adr/`](docs/adr/), published one by one with
 installation values removed. A few to start with:
 
 | ADR | Decision |
