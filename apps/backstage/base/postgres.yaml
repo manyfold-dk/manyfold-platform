@@ -1,6 +1,8 @@
-# Backstage's database. Deliberately no PersistentVolumeClaim: the database holds a
-# cache of what Git already records and is not backed up (ADR 0060, D7), so an
-# emptyDir is the proof-of-concept form of that. A restart rebuilds the catalog.
+# Backstage's database. Deliberately no PersistentVolumeClaim: the database is not
+# backed up (ADR 0060, D7), and an emptyDir is the proof-of-concept form of that. A
+# container restart keeps the emptyDir. A replaced Pod starts empty: the backend
+# re-ingests the catalog from Git, and scaffolder task history, user settings and
+# notifications are lost, which D7 accepts.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

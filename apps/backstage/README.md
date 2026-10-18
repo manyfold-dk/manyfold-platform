@@ -4,9 +4,10 @@ The platform's developer portal: a [Backstage](https://backstage.io) app whose s
 reads the platform's components, systems and APIs from Git. It was generated with
 `@backstage/create-app` and uses the new backend system and the new frontend system.
 
-Users sign in through OpenID Connect against the installation's Keycloak realm. The catalog is
-the source of truth in Git; the PostgreSQL database next to the app is a cache of it and is not
-backed up.
+Users sign in through OpenID Connect against the installation's Keycloak realm. The catalog's
+source of truth is Git. The PostgreSQL database next to the app is not backed up: the backend
+re-ingests the catalog from Git, and the rest of its state is an accepted loss (see
+[Kubernetes base](#kubernetes-base)).
 
 ## Layout
 
@@ -17,7 +18,7 @@ backed up.
 | `app-config.yaml` | Local development defaults: in-memory SQLite, guest sign-in, example entities in `examples/` |
 | `app-config.production.yaml` | Production: PostgreSQL, OIDC, the catalog locations; every installation value is an environment variable |
 | `Dockerfile` | The image, built from this directory |
-| `base/` | The Kustomize base: the Deployment, its Service and the cache database |
+| `base/` | The Kustomize base: the Deployment, its Service and the PostgreSQL database |
 
 ## Prerequisites
 
@@ -111,8 +112,10 @@ from this source and publishes it; the installation's overlay pins its tag
 
 `base/` declares the namespace `backstage` (PodSecurity `warn` and `audit` at restricted),
 the Deployment and Service `backstage` (port 80 to 7007), and `backstage-postgres`. The
-database runs on an `emptyDir`, deliberately without a volume claim: it holds a cache of Git,
-and a restart rebuilds it. Health probes use the backend's
+database runs on an `emptyDir`, deliberately without a volume claim. A container restart keeps
+the `emptyDir`; replacing the Postgres Pod empties it. The backend then re-ingests the catalog
+from Git, but scaffolder task history, user settings and notifications are lost, because Git does
+not hold them. ADR 0060 D7 accepts that loss. Health probes use the backend's
 `/.backstage/health/v1/liveness` and `/.backstage/health/v1/readiness`.
 
 The installation's overlay adds:

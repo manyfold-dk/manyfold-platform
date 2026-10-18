@@ -11,7 +11,7 @@ software, services, and documentation.
 ### Quick Start
 
 - **Explore the catalog** — Browse all your organization's software in
-  the [Software Catalog](/catalog)
+  the [Software Catalog](/)
 - **Create something new** — Use a [Software Template](/create) to
   scaffold a new project in minutes
 - **Read the docs** — Find technical documentation for any service
