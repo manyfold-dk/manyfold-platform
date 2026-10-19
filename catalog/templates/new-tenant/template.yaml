@@ -78,6 +78,9 @@ spec:
           ui:field: Secret
 
   steps:
+    # Every fetch uses an absolute URL to this public repository's main. The template
+    # editor's dry run resolves a relative url against its upload directory and refuses a
+    # path that leaves it, so a relative url works only for a registered template.
     # Hand procedure, Step 2.1: create the tenant repository from the tenant repository
     # scaffold. The scaffold's files are copied verbatim (ci.yml carries GitHub Actions
     # expressions that the template engine would consume). ci.yml lands at the repository
@@ -87,7 +90,7 @@ spec:
       name: Fetch the tenant repository scaffold
       action: fetch:plain
       input:
-        url: ../../../platform/tenants/_tenant-repo-scaffold
+        url: https://github.com/manyfold-dk/manyfold-platform/tree/main/platform/tenants/_tenant-repo-scaffold
         targetPath: tenant-repo
 
     # Hand procedure, Step 2.3: add gitops/prod/ so the ApplicationSet generates at least
@@ -96,7 +99,7 @@ spec:
       name: Add gitops/prod/
       action: fetch:plain
       input:
-        url: ./skeleton
+        url: https://github.com/manyfold-dk/manyfold-platform/tree/main/catalog/templates/new-tenant/skeleton
         targetPath: tenant-repo
 
     - id: publish
@@ -123,7 +126,7 @@ spec:
       name: Fetch the landing-zone template
       action: fetch:template
       input:
-        url: ../../../platform/tenants/_template
+        url: https://github.com/manyfold-dk/manyfold-platform/tree/main/platform/tenants/_template
         targetPath: landing-zone/platform/tenants/${{ parameters.tenantName }}
         templateFileExtension: .tmpl
         values:
