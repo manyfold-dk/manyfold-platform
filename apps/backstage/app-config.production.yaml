@@ -83,3 +83,7 @@ techdocs:
       credentials:
         accessKeyId: ${TECHDOCS_ACCESS_KEY_ID}
         secretAccessKey: ${TECHDOCS_SECRET_ACCESS_KEY}
+
+# The Baseline conformance card's data (plugins/conformance-backend). The installation
+# sets conformance.sourceUrl in app-config.instance.yaml; unset, the card reports that
+# the source is not configured. See README.md#baseline-conformance-card.
