@@ -1,8 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "This repository pins upstream images by tag and digest in plain manifests, and an installation runs those pins as they are (ADR-0055). It pins every action and reusable workflow by digest with its release tag. It holds the application sources and the devcontainer that an installation must carry byte for byte (ADR-0054), so their npm, Maven and devcontainer tool updates land here and reach an installation when it moves its pin. Renovate keeps all of these current. Only the kubernetes, github-actions, npm and maven managers and the regex managers below are enabled: other dependencies are out of this configuration's scope.",
+  "description": "This repository pins upstream images by tag and digest in plain manifests, and an installation runs those pins as they are (ADR-0055). It pins every action and reusable workflow by digest with its release tag. It holds the application sources and the devcontainer that an installation must carry byte for byte (ADR-0054), so their npm, Maven and devcontainer tool updates land here and reach an installation when it moves its pin. Renovate keeps all of these current. Only the kubernetes, github-actions, npm, maven and pip_requirements managers and the regex managers below are enabled: other dependencies are out of this configuration's scope.",
   "extends": ["github>manyfold-dk/estate-baseline//renovate/default.json"],
-  "enabledManagers": ["kubernetes", "github-actions", "npm", "maven", "custom.regex"],
+  "enabledManagers": ["kubernetes", "github-actions", "npm", "maven", "pip_requirements", "custom.regex"],
+  "pip_requirements": {
+    "description": "The TechDocs generator's one Python requirement in the Backstage image.",
+    "fileMatch": ["^apps/backstage/requirements\\.txt$"]
+  },
   "kubernetes": {
     "description": "The plain manifests that pin an upstream image by tag and digest.",
     "fileMatch": [

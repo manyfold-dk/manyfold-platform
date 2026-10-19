@@ -39,6 +39,20 @@ RUN yarn workspaces focus --all --production && yarn cache clean --all
 FROM docker.io/library/node:24-bookworm-slim
 LABEL org.opencontainers.image.source="https://github.com/manyfold-dk/manyfold-platform"
 LABEL org.opencontainers.image.description="Backstage developer portal for the platform"
+# TechDocs: the backend builds each entity's docs with mkdocs in this container
+# (techdocs.generator.runIn: local) and publishes the site to object storage. The
+# generator writes only under os.tmpdir(), which is /tmp.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt /opt/techdocs/requirements.txt
+RUN python3 -m venv /opt/techdocs \
+    && /opt/techdocs/bin/pip install --no-cache-dir -r /opt/techdocs/requirements.txt
+# MkDocs and Material print a banner about MkDocs 2.0 on every build; keep it out of the
+# backend's log.
+ENV PATH=/opt/techdocs/bin:$PATH \
+    DISABLE_MKDOCS_2_WARNING=true \
+    NO_MKDOCS_2_WARNING=true
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=deps /app ./

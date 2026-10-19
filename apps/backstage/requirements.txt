@@ -1,0 +1,4 @@
+# The TechDocs generator: the backend runs mkdocs in the container
+# (techdocs.generator.runIn: local). mkdocs-techdocs-core pins mkdocs-material,
+# pymdown-extensions and its other plugins at exact versions itself.
+mkdocs-techdocs-core==1.7.1

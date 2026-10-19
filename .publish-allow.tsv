@@ -277,3 +277,5 @@ exact version	*	apps/backstage/base/postgres.yaml
 # SVG path coordinates in the generated logos read as versions
 exact version	*	apps/backstage/packages/app/src/modules/nav/LogoFull.tsx
 exact version	*	apps/backstage/packages/app/src/modules/nav/LogoIcon.tsx
+# The TechDocs generator's Python requirement, an upstream version (ADR-0055)
+exact version	*	apps/backstage/requirements.txt

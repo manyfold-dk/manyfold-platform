@@ -1,6 +1,6 @@
 # Backstage backend, which also serves the frontend. The installation overlay pins the
 # image tag (ADR-0058), mounts app-config.instance.yaml at /app/instance and appends it
-# to the arguments, and provides the three Secrets named below.
+# to the arguments, and provides the four Secrets named below.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -83,6 +83,31 @@ spec:
             # Placeholder; app-config.instance.yaml sets the realm's metadata URL.
             - name: AUTH_OIDC_METADATA_URL
               value: http://localhost/.well-known/openid-configuration
+            # TechDocs publisher: an S3-compatible bucket. The installation creates the
+            # Secret from its bucket claim; the region is a placeholder most S3-compatible
+            # stores accept.
+            - name: TECHDOCS_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-techdocs-bucket
+                  key: TECHDOCS_BUCKET
+            - name: TECHDOCS_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-techdocs-bucket
+                  key: TECHDOCS_ENDPOINT
+            - name: TECHDOCS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-techdocs-bucket
+                  key: TECHDOCS_ACCESS_KEY_ID
+            - name: TECHDOCS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-techdocs-bucket
+                  key: TECHDOCS_SECRET_ACCESS_KEY
+            - name: TECHDOCS_REGION
+              value: us-east-1
             - name: NODE_OPTIONS
               value: --max-old-space-size=1536
           securityContext:
@@ -91,7 +116,7 @@ spec:
             capabilities:
               drop: ["ALL"]
           volumeMounts:
-            # Scaffolder working directory and the local TechDocs publisher.
+            # Scaffolder working directory and the TechDocs generator's build directory.
             - name: tmp
               mountPath: /tmp
           # The backend takes 20-60 s to start its plugins; liveness waits for it.
