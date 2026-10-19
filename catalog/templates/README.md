@@ -53,20 +53,30 @@ the form asks for it.
 
 ### GitHub permissions
 
-A dry run in the template editor needs no write permission. The publish steps do not run
-in a dry run, and the fetch steps read this repository, which is public.
+The portal stores no GitHub write credential. The form's last field, "GitHub token for this
+run", takes a token for one run. It is a `Secret` field: the value reaches the two publish
+steps as a task secret, and the task's recorded parameters hold only asterisks. The fetch
+steps keep the portal's read-only integration token.
 
-A real run uses the token of the portal's GitHub integration. For a fine-grained personal
-access token, the resource owner is the organisation and the repository access is "All
-repositories": a token limited to selected repositories cannot create a repository. The run
-needs these repository permissions:
+A dry run in the template editor needs no token. Leave the field empty: the publish steps
+do not run in a dry run, and the fetch steps read this repository, which is public. A real
+run with the field empty falls back to the integration token and fails at the repository
+creation.
 
-| Permission | Level | Used by |
+For a real run, mint a short-lived fine-grained personal access token:
+
+| Setting | Value |
+|---|---|
+| Resource owner | The organisation |
+| Repository access | All repositories. The tenant repository does not exist when the token is minted, and the run pushes to it and to the installation repository |
+| Organisation permissions | None |
+
+| Repository permission | Level | Used by |
 |---|---|---|
 | Administration | Read and write | `publish:github`: create the repository in the organisation, set its topics |
-| Contents | Read and write | `publish:github`: push the first commit. `publish:github:pull-request`: push the branch to the installation repository |
-| Pull requests | Read and write | `publish:github:pull-request`: open the pull request in the installation repository |
+| Repository creation, where GitHub offers it | Read and write | `publish:github`: GitHub's permission table lists the repository-creation endpoint under both this permission and Administration |
+| Contents | Read and write | `publish:github`: push the first commit. `publish:github:pull-request`: create the branch, its blobs, tree and commit in the installation repository |
+| Pull requests | Read and write | `publish:github:pull-request`: open the pull request |
 | Metadata | Read | GitHub requires it for every fine-grained token |
 
 The run needs no Workflows permission, because no file lands under `.github/workflows/`.
-It needs no organisation permission.
