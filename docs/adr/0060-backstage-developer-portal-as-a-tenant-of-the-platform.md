@@ -138,6 +138,13 @@ the deviation ADR when one exists. There is no backend plugin and no database ta
 reads a file, and the job that writes it already exists in the baseline's cron form. The card
 is the platform's standards made visible where a developer looks, instead of in a job log.
 
+**Amendment 2026-10-19: a minimal backend route.** The scheduled job writes
+`conformance.json` to a branch of a private repository instead of the bucket, and the browser
+cannot read a private repository. A backend plugin with one route therefore reads the file
+through the backend's URL reader with the GitHub integration's token, keeps it for five
+minutes and serves it to the card. It has no database table and no scheduler. The rationale
+below records the original choice.
+
 ### D7: The database
 
 Backstage keeps its catalog, scaffolder task history and user settings in Postgres. The proof
