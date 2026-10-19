@@ -15,6 +15,8 @@ WORKDIR /app
 COPY package.json yarn.lock .yarnrc.yml backstage.json ./
 COPY packages/app/package.json packages/app/package.json
 COPY packages/backend/package.json packages/backend/package.json
+COPY plugins/conformance/package.json plugins/conformance/package.json
+COPY plugins/conformance-backend/package.json plugins/conformance-backend/package.json
 RUN yarn install --immutable
 COPY . .
 RUN yarn tsc && yarn build:backend

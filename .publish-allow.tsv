@@ -269,6 +269,8 @@ repository path	apps/backstage/
 exact version	*	apps/backstage/package.json
 exact version	*	apps/backstage/packages/app/package.json
 exact version	*	apps/backstage/packages/backend/package.json
+exact version	*	apps/backstage/plugins/conformance/package.json
+exact version	*	apps/backstage/plugins/conformance-backend/package.json
 exact version	*	apps/backstage/yarn.lock
 # The Backstage release the app was generated from, which the Backstage CLI reads
 exact version	*	apps/backstage/backstage.json

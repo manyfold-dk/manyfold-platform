@@ -15,6 +15,7 @@ re-ingests the catalog from Git, and the rest of its state is an accepted loss (
 |---|---|
 | `packages/app/` | The frontend. `src/modules/auth/` adds the OIDC sign-in page and its API |
 | `packages/backend/` | The backend, which also serves the built frontend |
+| `plugins/conformance/`, `plugins/conformance-backend/` | The Baseline conformance card and the route that serves its data |
 | `app-config.yaml` | Local development defaults: in-memory SQLite, guest sign-in, example entities in `examples/` |
 | `app-config.production.yaml` | Production: PostgreSQL, OIDC, the catalog locations; every installation value is an environment variable |
 | `Dockerfile` | The image, built from this directory |
@@ -81,6 +82,7 @@ installation and is not a secret:
 |---|---|
 | `app.baseUrl`, `backend.baseUrl`, `backend.cors.origin` | The portal's public URL |
 | `auth.providers.oidc.production.metadataUrl` | The Keycloak realm's metadata URL |
+| `conformance.sourceUrl` | The URL of `conformance.json`; see [Baseline conformance card](#baseline-conformance-card) |
 | `catalog.locations` | Further catalog files, if any. A list in a later file replaces the whole list, so repeat the two public locations of `app-config.production.yaml` |
 | `organization.name`, `app.title` | Optional display names |
 
@@ -132,6 +134,54 @@ Build a repository's site locally the same way, with the image:
 docker run --rm -v "$PWD:/src:ro" --entrypoint sh backstage \
   -c 'cp -r /src /tmp/in && cd /tmp/in && mkdocs build -d /tmp/out'
 ```
+
+## Baseline conformance card
+
+Every Component's overview page carries the card "Baseline conformance". It shows, for the
+repository the entity names in its `github.com/project-slug` annotation, one row per
+baseline check: the check's name, its status, when it ran, and a link to each deviation ADR
+the repository records. A component without results shows "No conformance data for this
+component" and the time the file was generated.
+
+The data is one file, `conformance.json`, which the estate's scheduled conformance job
+writes to a branch of a repository:
+
+```json
+{
+  "generated_at": "<ISO-8601>",
+  "estate_baseline_commit": "<40 hex>",
+  "results": [
+    {
+      "repository": "<owner>/<repo>",
+      "check": "conformance|agent",
+      "exit_code": 0,
+      "timestamp": "<ISO-8601>",
+      "deviation_adrs": ["<url>"]
+    }
+  ]
+}
+```
+
+| `exit_code` | Status |
+|---|---|
+| `0` | clean |
+| `3` | drift |
+| anything else | check failed: the check itself did not complete |
+
+The plugin `conformance-backend` reads the file from `conformance.sourceUrl` through the
+backend's URL reader, which authenticates with the GitHub integration's token, keeps it for
+five minutes and serves it at `/api/conformance/conformance.json` with `fetched_at` added.
+The card calls that route with the signed-in user's token. The repository ships no URL:
+the installation sets `conformance.sourceUrl` in `app-config.instance.yaml`. For a file in a
+private repository it is the `github.com` blob URL, because the GitHub reader matches only
+the integration's host:
+
+```yaml
+conformance:
+  sourceUrl: https://github.com/<owner>/<repo>/blob/<branch>/conformance.json
+```
+
+Without it the route answers 503 and the card shows the error.
 
 ## Image
 

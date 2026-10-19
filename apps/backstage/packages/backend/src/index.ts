@@ -71,4 +71,8 @@ backend.add(import('@backstage/plugin-signals-backend'));
 // mcp actions plugin
 backend.add(import('@backstage/plugin-mcp-actions-backend'));
 
+// Baseline conformance: serves conformance.json to the entity card
+// (plugins/conformance-backend).
+backend.add(import('@internal/backstage-plugin-conformance-backend'));
+
 backend.start();
