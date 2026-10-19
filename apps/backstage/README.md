@@ -65,6 +65,11 @@ production file reads these environment variables:
 | `AUTH_OIDC_CLIENT_ID` | OIDC client | `backstage` |
 | `AUTH_OIDC_CLIENT_SECRET` | OIDC client secret | Secret `backstage-oidc`, key `AUTH_OIDC_CLIENT_SECRET` |
 | `AUTH_SESSION_SECRET` | `auth.session.secret`: signs the session cookie the OIDC login needs | Secret `backstage-oidc`, key `AUTH_SESSION_SECRET` |
+| `TECHDOCS_BUCKET` | TechDocs publisher: the bucket name | Secret `backstage-techdocs-bucket`, key `TECHDOCS_BUCKET` |
+| `TECHDOCS_ENDPOINT` | TechDocs publisher: the S3-compatible endpoint URL | Secret `backstage-techdocs-bucket`, key `TECHDOCS_ENDPOINT` |
+| `TECHDOCS_ACCESS_KEY_ID` | TechDocs publisher: access key | Secret `backstage-techdocs-bucket`, key `TECHDOCS_ACCESS_KEY_ID` |
+| `TECHDOCS_SECRET_ACCESS_KEY` | TechDocs publisher: secret key | Secret `backstage-techdocs-bucket`, key `TECHDOCS_SECRET_ACCESS_KEY` |
+| `TECHDOCS_REGION` | TechDocs publisher: the region the S3 client signs for | `us-east-1` |
 | `NODE_OPTIONS` | Heap limit below the container's memory limit | `--max-old-space-size=1536` |
 
 A third file, `app-config.instance.yaml`, is not in this repository. The installation mounts it
@@ -87,18 +92,54 @@ The production configuration:
 - **The catalog** reads `catalog/all.yaml` of this repository and `catalog-info.yaml` of
   `estate-baseline`, both public. It accepts the kinds Component, System, API, Resource,
   Location, Domain, Group, User and Template.
-- **TechDocs** is set to an external builder with the local publisher in `/tmp/techdocs`. A CI
-  build of the docs and an object-storage publisher come later.
+- **TechDocs** is built by the backend and published to an S3-compatible bucket; see
+  [TechDocs](#techdocs).
 - **The guest provider** stays configured in `app-config.yaml` for development. The backend
   does not load its module outside `NODE_ENV=development`, and the sign-in page shows only
   Keycloak when `auth.environment` is `production`.
+
+## TechDocs
+
+The backend builds an entity's documentation the first time someone opens it, and again
+when the source has changed (`techdocs.builder: local`). It reads the source at the
+entity's `backstage.io/techdocs-ref` annotation, runs mkdocs with the `techdocs-core`
+plugin inside the container (`techdocs.generator.runIn: local`), and uploads the site to
+the bucket (`techdocs.publisher.type: awsS3`, path-style addressing for an S3-compatible
+store). The bucket keeps the built sites across Pod replacements.
+
+The backend builds instead of CI because publishing from CI would put the bucket's
+credentials into every documented repository, and several of them are public. ADR 0060 D4
+is adjusted accordingly.
+
+- **Python in the image.** The runtime stage installs `python3` and a virtual environment
+  at `/opt/techdocs` from `requirements.txt`: `mkdocs-techdocs-core` at an exact version,
+  which pins its own plugins exactly. Renovate updates the file.
+- **Writable paths.** The generator works in `os.tmpdir()`, which is `/tmp`, the
+  `emptyDir` of the read-only Pod.
+- **A repository's docs.** A repository opts in with a `mkdocs.yml` next to its
+  `catalog-info.yaml` and the annotation `backstage.io/techdocs-ref: dir:.`. This
+  repository's own `mkdocs.yml` at the root is an example. The generator removes mkdocs keys
+  and plugins outside its allow-list before it builds.
+- **Bucket and credentials.** The installation creates the Secret
+  `backstage-techdocs-bucket` with the four keys `TECHDOCS_BUCKET`, `TECHDOCS_ENDPOINT`,
+  `TECHDOCS_ACCESS_KEY_ID` and `TECHDOCS_SECRET_ACCESS_KEY`. The base sets
+  `TECHDOCS_REGION` to `us-east-1`; an overlay changes it where the store needs a real
+  region.
+
+Build a repository's site locally the same way, with the image:
+
+```sh
+docker run --rm -v "$PWD:/src:ro" --entrypoint sh backstage \
+  -c 'cp -r /src /tmp/in && cd /tmp/in && mkdocs build -d /tmp/out'
+```
 
 ## Image
 
 `Dockerfile` builds in three stages on `node:24-bookworm-slim`: the first installs every
 workspace, type-checks and builds the backend bundle; the second installs the backend's
 production dependencies from the bundle's skeleton; the third holds the bundle, those
-dependencies and the two config files, owned by root and run as uid 1000. The process writes
+dependencies, the two config files and the TechDocs generator's Python environment, owned by
+root and run as uid 1000. The process writes
 only to `/tmp`, so it runs with a read-only root filesystem.
 
 ```sh
@@ -123,8 +164,8 @@ The installation's overlay adds:
 
 - the image tag, with a Kustomize `images:` entry;
 - `app-config.instance.yaml`, mounted at `/app/instance/`, and the extra `--config` argument;
-- the Secrets `backstage-postgres`, `backstage-github-token`, `backstage-oidc` and the pull
-  secret `ghcr-credentials`;
+- the Secrets `backstage-postgres`, `backstage-github-token`, `backstage-oidc`,
+  `backstage-techdocs-bucket` and the pull secret `ghcr-credentials`;
 - the route and `pod-security.kubernetes.io/enforce`.
 
 ## Known quirk

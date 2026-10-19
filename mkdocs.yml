@@ -1,0 +1,67 @@
+# TechDocs for this repository: the developer portal builds docs/ with mkdocs and the
+# techdocs-core plugin (catalog-info.yaml, backstage.io/techdocs-ref: dir:.). The
+# documents are written for GitHub; the portal renders them as they are.
+site_name: Manyfold platform
+site_description: The public reference installation of a small Kubernetes platform.
+repo_url: https://github.com/manyfold-dk/manyfold-platform
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+plugins:
+  - techdocs-core
+  # docs/ has no index page; the site opens on the decision index.
+  - redirects:
+      redirect_maps:
+        index.md: adr/README.md
+
+nav:
+  - Decisions: adr/README.md
+  - Architecture:
+      - architecture/platform-overview.md
+      - architecture/diagrams/README.md
+  - Runbooks:
+      - runbooks/README.md
+      - runbooks/tenant-onboarding.md
+      - runbooks/object-backup-failed.md
+      - Applications:
+          - runbooks/applications/deploy.md
+          - runbooks/applications/rollback.md
+          - runbooks/applications/debug.md
+          - runbooks/applications/registry.md
+          - runbooks/applications/ghcr-package-linking.md
+          - runbooks/applications/openbao.md
+          - runbooks/applications/tailscale.md
+      - Cluster:
+          - runbooks/cluster/argocd-app-not-converging.md
+          - runbooks/cluster/debug-networking.md
+          - runbooks/cluster/debug-storage.md
+          - runbooks/cluster/drain-node.md
+          - runbooks/cluster/github-webhooks.md
+          - runbooks/cluster/scaling.md
+      - Talos:
+          - runbooks/talos/upgrade-os.md
+          - runbooks/talos/upgrade-kubernetes.md
+          - runbooks/talos/reset-node.md
+          - runbooks/talos/etcd-recovery.md
+          - runbooks/talos/view-logs.md
+      - Disaster recovery:
+          - runbooks/disaster-recovery/full-rebuild.md
+          - runbooks/disaster-recovery/restore-backup.md
+          - runbooks/disaster-recovery/velero-operations.md
+          - runbooks/disaster-recovery/openbao-raft-restore.md
+  - Standards: standards/deep-health-api.md
+  - Guides: guides/dependency-management.md
+  - Setup:
+      - setup/macos-setup.md
+      - setup/secrets-management.md
+  - Claude Code:
+      - claude-code/README.md
+      - claude-code/getting-started.md
+      - claude-code/features.md
+      - claude-code/keyboard-shortcuts.md
+      - claude-code/parallel-sessions.md
+      - claude-code/CLAUDE-CODE-RECOMMENDATIONS.md
+      - claude-code/CLAUDE-CODE-RECOMMENDATIONSv2.md
+  - Status widgets:
+      - iphone-widget/README.md
+      - omarchy-widget/README.md

@@ -63,11 +63,23 @@ catalog:
     - type: url
       target: https://github.com/manyfold-dk/estate-baseline/blob/main/catalog-info.yaml
 
-# TechDocs is built outside Backstage; publishing to object storage comes later.
+# TechDocs: the backend builds an entity's docs on first view with mkdocs inside the
+# image (Dockerfile, requirements.txt) and publishes the site to an S3-compatible
+# bucket, which survives a Pod replacement. The backend builds rather than CI, because
+# publishing from CI would need the bucket's credentials in public repositories.
+# The installation provides the bucket and its credentials as the Secret
+# backstage-techdocs-bucket (base/deployment.yaml).
 techdocs:
-  builder: external
+  builder: local
+  generator:
+    runIn: local
   publisher:
-    type: local
-    local:
-      # The root filesystem is read-only in the cluster; /tmp is an emptyDir.
-      publishDirectory: /tmp/techdocs
+    type: awsS3
+    awsS3:
+      bucketName: ${TECHDOCS_BUCKET}
+      endpoint: ${TECHDOCS_ENDPOINT}
+      region: ${TECHDOCS_REGION}
+      s3ForcePathStyle: true
+      credentials:
+        accessKeyId: ${TECHDOCS_ACCESS_KEY_ID}
+        secretAccessKey: ${TECHDOCS_SECRET_ACCESS_KEY}

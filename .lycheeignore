@@ -5,3 +5,6 @@
 ^file://.*/docs/templates/link$
 ^file://.*/docs/docs/adr/0001-topic\.md$
 ^file://.*/docs/other-component/README\.md$
+# The ADR index is generated from each record's status line. ADR 0006's status links to two
+# of its own sections by fragment, which in the index resolve against the index itself.
+^file://.*/docs/adr/README\.md#(amendment-2026-06-14-blacksmith-replaces-tekton-for-ci|operational-amendment-2026-09-27-tekton-retired-from-the-repository)$
