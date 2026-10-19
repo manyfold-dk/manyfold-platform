@@ -75,8 +75,8 @@ spec:
           description: >-
             A short-lived fine-grained token that can create a repository in the
             organisation and write contents and pull requests (catalog/templates/README.md
-            lists the permissions). Paste it from the vault for a real run; the portal
-            stores no write credential. Leave it empty for a dry run.
+            lists the permissions and how the portal holds the token). Paste it from the
+            vault for a real run, leave it empty for a dry run, and revoke it after use.
           ui:field: Secret
 
   steps:

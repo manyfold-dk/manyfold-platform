@@ -54,10 +54,12 @@ the form asks for it.
 
 ### GitHub permissions
 
-The portal stores no GitHub write credential. The form's last field, "GitHub token for this
-run", takes a token for one run. It is a `Secret` field: the value reaches the two publish
-steps as a task secret, and the task's recorded parameters hold only asterisks. The fetch
-steps keep the portal's read-only integration token.
+The portal holds no standing GitHub write credential: the form's last field, "GitHub token
+for this run", is a `Secret` field that takes a token for one run, and the task's recorded
+parameters hold only asterisks. The scaffolder receives the token with the task, keeps it in
+its task table only until a worker claims the task, seconds later, redacts it from the task
+log and never returns it through the task API; only the two publish steps use it, and the
+fetch steps keep the portal's read-only integration token. Revoke the token after the run.
 
 A dry run in the template editor needs no token. Leave the field empty: the publish steps
 do not run in a dry run, and the fetch steps read this repository, which is public. A real
