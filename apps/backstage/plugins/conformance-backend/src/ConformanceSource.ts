@@ -3,6 +3,9 @@ import { LoggerService, UrlReaderService } from '@backstage/backend-plugin-api';
 /** How long a fetched conformance.json is served before the next read. */
 export const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
+/** How long a failed read keeps the previous body before the next read. */
+export const DEFAULT_RETRY_BACKOFF_MS = 60 * 1000;
+
 /** A fetched conformance.json and the time the backend read it. */
 export interface ConformanceSnapshot {
   document: Record<string, unknown>;
@@ -13,15 +16,17 @@ export interface ConformanceSnapshot {
  * Reads conformance.json through the URL reader, which carries the GitHub
  * integration's token, and keeps the parsed body for a fixed time. Concurrent
  * requests share one read. A failed read serves the previous body, if any, and
- * otherwise throws.
+ * holds off the next read for a backoff period; without a previous body it throws.
  */
 export class ConformanceSource {
   private readonly urlReader: UrlReaderService;
   private readonly sourceUrl: string;
   private readonly logger: LoggerService;
   private readonly ttlMs: number;
+  private readonly retryBackoffMs: number;
   private readonly now: () => Date;
   private cached?: ConformanceSnapshot;
+  private retryAt?: number;
   private inflight?: Promise<ConformanceSnapshot>;
 
   constructor(options: {
@@ -29,20 +34,24 @@ export class ConformanceSource {
     sourceUrl: string;
     logger: LoggerService;
     ttlMs?: number;
+    retryBackoffMs?: number;
     now?: () => Date;
   }) {
     this.urlReader = options.urlReader;
     this.sourceUrl = options.sourceUrl;
     this.logger = options.logger;
     this.ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
+    this.retryBackoffMs = options.retryBackoffMs ?? DEFAULT_RETRY_BACKOFF_MS;
     this.now = options.now ?? (() => new Date());
   }
 
   async get(): Promise<ConformanceSnapshot> {
     const cached = this.cached;
+    const now = this.now().getTime();
     if (
       cached &&
-      this.now().getTime() - cached.fetchedAt.getTime() < this.ttlMs
+      (now - cached.fetchedAt.getTime() < this.ttlMs ||
+        (this.retryAt !== undefined && now < this.retryAt))
     ) {
       return cached;
     }
@@ -60,9 +69,11 @@ export class ConformanceSource {
       const text = (await response.buffer()).toString('utf8');
       const document = parseConformanceDocument(text);
       this.cached = { document, fetchedAt: this.now() };
+      this.retryAt = undefined;
       return this.cached;
     } catch (error) {
       if (this.cached) {
+        this.retryAt = this.now().getTime() + this.retryBackoffMs;
         this.logger.warn(
           `Reading conformance.json failed, serving the copy from ${this.cached.fetchedAt.toISOString()}: ${error}`,
         );

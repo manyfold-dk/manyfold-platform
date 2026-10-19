@@ -83,6 +83,42 @@ describe('ConformanceSource', () => {
     await expect(source.get()).resolves.toBe(first);
   });
 
+  it('waits out the backoff before reading again after a failure', async () => {
+    let now = new Date('2026-10-19T00:00:00Z');
+    const { reader, readUrl } = readerReturning(
+      body,
+      new Error('rate limited'),
+      new Error('rate limited'),
+      body,
+    );
+    const source = new ConformanceSource({
+      urlReader: reader,
+      sourceUrl,
+      logger,
+      ttlMs: 1000,
+      retryBackoffMs: 500,
+      now: () => now,
+    });
+    const first = await source.get();
+
+    now = new Date(now.getTime() + 5000);
+    await expect(source.get()).resolves.toBe(first);
+    expect(readUrl).toHaveBeenCalledTimes(2);
+
+    now = new Date(now.getTime() + 499);
+    await expect(source.get()).resolves.toBe(first);
+    expect(readUrl).toHaveBeenCalledTimes(2);
+
+    now = new Date(now.getTime() + 1);
+    await expect(source.get()).resolves.toBe(first);
+    expect(readUrl).toHaveBeenCalledTimes(3);
+
+    now = new Date(now.getTime() + 500);
+    const fresh = await source.get();
+    expect(readUrl).toHaveBeenCalledTimes(4);
+    expect(fresh.fetchedAt).toEqual(now);
+  });
+
   it('throws when the first read fails', async () => {
     const { reader } = readerReturning(new Error('not found'));
     const source = new ConformanceSource({
