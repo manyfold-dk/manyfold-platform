@@ -1,0 +1,176 @@
+# The scaffolder form for onboarding a tenant. It automates the parts of the hand procedure
+# in platform/tenants/_template/README.md that the installed actions can do, and opens the
+# rest as a checklist. catalog/templates/README.md explains each step and what stays manual.
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: new-tenant
+  title: New tenant
+  description: >-
+    Creates the tenant's private repository from the platform's tenant repository scaffold
+    and opens a draft pull request with the tenant's landing zone in the installation
+    repository. The landing zone's {{TENANT}} placeholders are not rendered by the
+    scaffolder: the pull request's first checklist item renders them.
+  tags:
+    - tenant
+    - landing-zone
+spec:
+  owner: platform-operators
+  type: tenant
+
+  parameters:
+    - title: Tenant
+      required:
+        - tenantName
+        - owner
+        - description
+      properties:
+        tenantName:
+          title: Tenant name
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,30}$'
+          description: >-
+            The tenant name token, used everywhere: resource names, labels, the repository
+            name and the namespace prefix. It must equal the tenant's Keycloak realm name.
+            The tenant repository is created as manyfold-dk/<tenant name>, because the
+            landing zone's AppProject and ApplicationSet name that repository.
+          ui:autofocus: true
+        owner:
+          title: Owner
+          type: string
+          description: The group that owns the tenant.
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+        description:
+          title: Description
+          type: string
+          maxLength: 200
+          description: One line; it becomes the tenant repository's description.
+    - title: Installation
+      required:
+        - installationRepoUrl
+      properties:
+        installationRepoUrl:
+          title: Installation repository
+          type: string
+          description: >-
+            The repository of the installation that runs the platform: the one that keeps
+            the tenants' rendered landing zones under platform/tenants/. The landing-zone
+            pull request is opened there.
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+            allowedOwners:
+              - manyfold-dk
+
+  steps:
+    # Hand procedure, Step 2.1: create the tenant repository from the tenant repository
+    # scaffold. The scaffold's files are copied verbatim (ci.yml carries GitHub Actions
+    # expressions that the template engine would consume). ci.yml lands at the repository
+    # root, not under .github/workflows/: the scaffold README's "How To Use" edits its env
+    # block for one application before it is committed there.
+    - id: fetch-tenant-repo
+      name: Fetch the tenant repository scaffold
+      action: fetch:plain
+      input:
+        url: ../../../platform/tenants/_tenant-repo-scaffold
+        targetPath: tenant-repo
+
+    # Hand procedure, Step 2.3: add gitops/prod/ so the ApplicationSet generates at least
+    # one Application on first sync.
+    - id: fetch-gitops-dir
+      name: Add gitops/prod/
+      action: fetch:plain
+      input:
+        url: ./skeleton
+        targetPath: tenant-repo
+
+    - id: publish
+      name: Create the tenant repository
+      action: publish:github
+      input:
+        repoUrl: github.com?owner=manyfold-dk&repo=${{ parameters.tenantName }}
+        sourcePath: tenant-repo
+        defaultBranch: main
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        # The estate applies its rulesets separately.
+        protectDefaultBranch: false
+        topics:
+          - manyfold-tenant
+        gitCommitMessage: 'chore: tenant repository from the platform scaffold'
+
+    # Hand procedure, Step 1: copy platform/tenants/_template, rename *.yaml.tmpl to *.yaml
+    # and remove the README. templateFileExtension strips the .tmpl suffix. The template
+    # engine opens variables only at "${{", so the {{TENANT}} placeholders and the Argo CD
+    # runtime variables pass through unchanged; the pull request renders {{TENANT}}.
+    - id: fetch-landing-zone
+      name: Fetch the landing-zone template
+      action: fetch:template
+      input:
+        url: ../../../platform/tenants/_template
+        targetPath: landing-zone/platform/tenants/${{ parameters.tenantName }}
+        templateFileExtension: .tmpl
+        values:
+          tenantName: ${{ parameters.tenantName }}
+
+    - id: remove-template-readme
+      name: Remove the template README
+      action: fs:delete
+      input:
+        files:
+          - landing-zone/platform/tenants/${{ parameters.tenantName }}/README.md
+
+    - id: landing-zone-pr
+      name: Open the landing-zone pull request
+      action: publish:github:pull-request
+      input:
+        repoUrl: ${{ parameters.installationRepoUrl }}
+        branchName: tenant/${{ parameters.tenantName }}
+        title: 'feat(tenants): landing zone for ${{ parameters.tenantName }}'
+        commitMessage: 'feat(tenants): landing zone for ${{ parameters.tenantName }}'
+        draft: true
+        sourcePath: landing-zone
+        targetPath: .
+        description: |
+          Landing zone for the tenant `${{ parameters.tenantName }}`, owned by `${{ parameters.owner }}`.
+          The scaffolder template `new-tenant` made it from `platform/tenants/_template/` of the
+          reference installation's `main`, following the template README's "Onboarding Tenant N".
+
+          The scaffolder copied the template, renamed `*.yaml.tmpl` to `*.yaml` and removed the
+          README. It does not replace the `{{TENANT}}` placeholders, so this pull request opens as a
+          draft, and the tenant-manifest validation fails until the first item below is done.
+
+          The tenant repository `manyfold-dk/${{ parameters.tenantName }}` exists now, with the tenant
+          repository scaffold and `gitops/prod/`.
+
+          - [ ] Step 1, rest: on this branch, replace the placeholders and check that none is left.
+            The command is the template README's (macOS sed; with GNU sed, drop the `''`).
+
+            ```sh
+            find platform/tenants/${{ parameters.tenantName }} -name '*.yaml' -exec sed -i '' "s/{{TENANT}}/${{ parameters.tenantName }}/g" {} +
+            grep -rn '{{TENANT}}' platform/tenants/${{ parameters.tenantName }} && echo "UNREPLACED PLACEHOLDERS" || echo "OK"
+            ```
+
+          - [ ] Step 2.2: give Argo CD read access to `manyfold-dk/${{ parameters.tenantName }}`
+            (deploy-key credentials) before the landing zone syncs.
+          - [ ] Step 3: add `platform/argocd/cloud/applications/${{ parameters.tenantName }}-landing-zone.yaml`
+            and register it in that directory's `kustomization.yaml`, as the template README shows.
+          - [ ] Validation: `./scripts/ci/validate-tenant-manifests.sh` exits 0.
+          - [ ] Mark this pull request ready for review.
+
+          After the landing zone is synced and healthy, Step 4 follows as separate pull requests:
+          the Keycloak realm, the OpenBao mount, policy and role
+          (`setup-openbao-k8s-auth.sh create-tenant ${{ parameters.tenantName }}`), the Velero
+          schedule, and observability. Step 5 (ingress, DNS, TLS) waits until the tenant has a
+          domain.
+
+  output:
+    links:
+      - title: Tenant repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Landing-zone pull request
+        url: ${{ steps['landing-zone-pr'].output.remoteUrl }}
