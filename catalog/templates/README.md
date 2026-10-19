@@ -14,8 +14,9 @@ catalog gets them too.
 The template automates part of the hand procedure that two READMEs describe:
 [the landing-zone template](../../platform/tenants/_template/README.md#onboarding-tenant-n)
 and [the tenant repository scaffold](../../platform/tenants/_tenant-repo-scaffold/README.md).
-It adds nothing to that procedure. Both directories stay the source; the template reads them
-from the branch the catalog is registered from, by URLs relative to its own location.
+It adds nothing to that procedure. Both directories stay the source. The template reads them,
+and its own `skeleton/`, from this repository's `main` by absolute URL. A relative URL would
+break the template editor's dry run, which refuses a path outside the uploaded directory.
 
 ### What it does
 
