@@ -112,6 +112,14 @@ from that bucket and never builds. No document is written or rewritten for the p
 TechDocs exposes about the existing documentation is one of the questions the proof of concept
 asks.
 
+**Amendment 2026-10-19: the backend builds.** Publishing from each repository's CI would put
+the bucket's write credentials into public repositories. The portal's backend therefore builds
+an entity's site with mkdocs inside its own container and publishes it to the bucket
+(`techdocs.builder: local`); the image carries Python and `mkdocs-techdocs-core`, and only the
+portal holds the bucket's credentials. Each repository still contributes only a `mkdocs.yml`
+next to its existing `docs/`, and no document is rewritten. The rationale below records the
+original choice.
+
 ### D5: One scaffolder template
 
 The portal carries one template, "new tenant", with two parameters: tenant name and owner
