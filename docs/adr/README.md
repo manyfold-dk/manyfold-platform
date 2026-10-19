@@ -43,5 +43,5 @@ The platform's architecture decisions, one MADR record per decision, published w
 | 0055 | [Upstream Versions in the Public Platform Repository](0055-upstream-versions-in-the-public-platform-repository.md) | Accepted (2026-09-23), on the owner's decision. A recorded deviation from the baseline |
 | 0058 | [Untagged Images in Application Bases](0058-untagged-images-in-application-bases.md) | accepted |
 | 0059 | [Registry Volumes Outside Velero File-System Backup](0059-registry-volumes-outside-velero-file-system-backup.md) | accepted |
-| 0060 | [A Backstage Developer Portal as a Tenant of the Platform](0060-backstage-developer-portal-as-a-tenant-of-the-platform.md) | Proposed (2026-10-18). A proof of concept, time-boxed to one weekend and two evenings. The |
+| 0060 | [A Backstage Developer Portal as a Tenant of the Platform](0060-backstage-developer-portal-as-a-tenant-of-the-platform.md) | Accepted (2026-10-19) |
 <!-- adr-index:end -->
