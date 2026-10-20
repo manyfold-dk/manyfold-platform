@@ -42,7 +42,7 @@ Replace these placeholders with the values of your installation:
 - `talosctl` installed and configured
 - Kubeconfig access to cluster
 - `hcloud-upload-image` installed (included in devcontainer)
-- `HCLOUD_TOKEN` available (`source infrastructure/.env.cloud`)
+- `HCLOUD_TOKEN` exported: Step 1 reads it from `<cloud-env-file>`
 - Current Talos version noted
 
 ```bash
@@ -90,7 +90,8 @@ Create a Hetzner snapshot for the target Talos version. This ensures new servers
 
 ```bash
 cd infrastructure/clusters/cloud/scripts
-source ../../.env.cloud
+# One variable only. Do not source the whole file (runbooks README, Prerequisites).
+export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
 ./build-talos-snapshot.sh v<TARGET_VERSION>
 ```
 

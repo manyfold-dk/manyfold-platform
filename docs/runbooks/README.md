@@ -3,7 +3,9 @@
 Runbooks for operating a Manyfold platform cluster on Hetzner Cloud with Talos Linux.
 
 Placeholders: `<cloud-kubeconfig>` is the kubeconfig of the cloud cluster, `<cloud-env-file>` the
-file that exports the infrastructure credentials, `<domain>` the installation's domain.
+local, untracked file with the infrastructure credentials (one `NAME=value` per line),
+`<hcloud-token-name>` the name of the Hetzner Cloud token in that file (`HCLOUD_TOKEN`, unless
+the installation names it otherwise), `<domain>` the installation's domain.
 
 ## Table of Contents
 
@@ -31,9 +33,13 @@ All runbooks assume you have:
    talosctl version --client
    ```
 
-3. **Access to infrastructure credentials** (for OpenTofu operations):
+3. **Access to infrastructure credentials** (for OpenTofu operations). Read only the variables
+   that a command needs. Do not source `<cloud-env-file>`: the shell then holds every credential
+   of the file. Each line that a command reads is an unquoted `NAME=value` line. The line has
+   no inline comment. The read keeps quotes and comments as part of the value.
    ```bash
-   source <cloud-env-file>
+   export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+   export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
    ```
 
 ## Runbook Categories

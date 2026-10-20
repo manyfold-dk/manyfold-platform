@@ -226,7 +226,9 @@ kubectl exec -n registry-system deployment/mirror-docker-io -- \
 
    # Apply Talos config
    cd infrastructure/clusters/cloud/bootstrap
-   source <cloud-env-file>
+   # Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+   export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+   export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
    tofu apply
    ```
 

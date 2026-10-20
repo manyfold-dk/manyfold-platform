@@ -102,7 +102,9 @@ If infrastructure still exists and needs clean rebuild:
 
 ```bash
 cd infrastructure/clusters/cloud/bootstrap
-source ../../../.env.cloud
+# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 
 # Destroy everything
 tofu destroy
@@ -114,7 +116,9 @@ tofu destroy
 
 ```bash
 cd infrastructure/clusters/cloud/bootstrap
-source ../../../.env.cloud
+# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 
 # Initialize (if fresh clone)
 tofu init -backend-config=backend.hcl

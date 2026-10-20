@@ -136,7 +136,9 @@ If you have API access, you can automate rotation:
 ```bash
 # The OAuth client itself can be used to create API keys
 # First, get an access token using the OAuth credentials
-source <cloud-env-file>
+# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+TAILSCALE_OAUTH_CLIENT_ID="$(sed -n 's/^TAILSCALE_OAUTH_CLIENT_ID=//p' <cloud-env-file> | head -1)"
+TAILSCALE_OAUTH_CLIENT_SECRET="$(sed -n 's/^TAILSCALE_OAUTH_CLIENT_SECRET=//p' <cloud-env-file> | head -1)"
 
 # Create access token (valid for 1 hour)
 ACCESS_TOKEN=$(curl -s -X POST "https://api.tailscale.com/api/v2/oauth/token" \
