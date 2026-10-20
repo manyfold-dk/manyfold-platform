@@ -43,7 +43,9 @@ cd infrastructure/clusters/cloud/bootstrap
 # Modify worker count or add new worker definition
 
 # Plan changes
-source ../../../.env.cloud
+# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 tofu plan
 
 # Apply
@@ -102,7 +104,9 @@ cd infrastructure/clusters/cloud/bootstrap
 # Update configuration to remove worker
 # Modify worker count or remove worker definition
 
-source ../../../.env.cloud
+# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 tofu plan
 tofu apply
 ```
@@ -126,7 +130,9 @@ cd infrastructure/clusters/cloud/bootstrap
 # Update configuration to add control plane node
 # Edit terraform.tfvars to increase cp count
 
-source ../../../.env.cloud
+# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 tofu plan
 tofu apply
 ```
@@ -182,7 +188,9 @@ kubectl delete node <node-name>
 
 ```bash
 cd infrastructure/clusters/cloud/bootstrap
-source ../../../.env.cloud
+# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 tofu plan
 tofu apply
 ```
