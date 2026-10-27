@@ -1,8 +1,8 @@
-# Backstage
+# ManyStage
 
-The platform's developer portal: a [Backstage](https://backstage.io) app whose software catalog
-reads the platform's components, systems and APIs from Git. It was generated with
-`@backstage/create-app` and uses the new backend system and the new frontend system.
+ManyStage is the platform's developer portal: a [Backstage](https://backstage.io) app whose
+software catalog reads the platform's components, systems and APIs from Git. It was generated
+with `@backstage/create-app` and uses the new backend system and the new frontend system.
 
 Users sign in through OpenID Connect against the installation's Keycloak realm. The catalog's
 source of truth is Git. The PostgreSQL database next to the app is not backed up: the backend
@@ -13,7 +13,7 @@ re-ingests the catalog from Git, and the rest of its state is an accepted loss (
 
 | Path | What it is |
 |---|---|
-| `packages/app/` | The frontend. `src/modules/auth/` adds the OIDC sign-in page and its API |
+| `packages/app/` | The frontend. `src/modules/auth/` adds the OIDC sign-in page and its API; `src/modules/theme/` the theme, see [Theme](#theme) |
 | `packages/backend/` | The backend, which also serves the built frontend |
 | `plugins/conformance/`, `plugins/conformance-backend/` | The Baseline conformance card and the route that serves its data |
 | `app-config.yaml` | Local development defaults: in-memory SQLite, guest sign-in, example entities in `examples/` |
@@ -48,6 +48,25 @@ yarn lint
 yarn test
 yarn build:backend
 ```
+
+## Theme
+
+The module `packages/app/src/modules/theme/` styles the portal in the Manyfold design system.
+It replaces Backstage's built-in light and dark themes with two built by `createUnifiedTheme`,
+under the same theme ids, so a user's stored choice still applies. `tokens.ts` holds the
+design system's colours, light and dark, its fonts and the corner radius. `themes.ts` maps
+them onto the Material UI palette and typography and adds a few component overrides.
+`styles.css` sets the same colours and fonts as the variables of the Backstage UI components,
+which the catalog pages use.
+
+The fonts, Inter and JetBrains Mono, come from the `@fontsource` packages. The frontend bundle
+carries them and the backend serves them from the portal's own origin, so the browser loads no
+font from a third party and the default Content Security Policy needs no change.
+
+To change a colour, change its value in `tokens.ts` and the same value in `styles.css`, then
+check both themes with `yarn start` (Settings, Appearance). The sidebar is dark in both themes;
+its colours are `nav` in `tokens.ts`. The logo, the mark and the wordmark ManyStage, is inline
+SVG in `src/modules/nav/`; the design system fixes the colours of the mark's bars.
 
 ## Configuration
 

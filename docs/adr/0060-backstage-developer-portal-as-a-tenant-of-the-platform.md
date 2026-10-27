@@ -23,6 +23,10 @@ the proposal. Acceptance records the decisions; it does not close the proof of c
 of the six done-criteria are still open ([D1](#d1-a-portal-as-a-proof-of-concept-with-six-done-criteria)).
 The record moves to Superseded, with the reasons, when the portal is torn down.
 
+Amended 2026-10-27: the portal is named ManyStage. The cut-list row 'Custom theme or
+branding' is lifted; the portal carries the Manyfold design system (theme module, logo,
+bundled fonts) since the amendment.
+
 ## Reconciled at acceptance
 
 The decision text below states each decision as built. Where the build differs from the
@@ -240,7 +244,7 @@ Deliberately not done, each a sentence of the form "not done, because", not a we
 | Kubernetes plugin with cluster credentials | It would give the portal read access to every namespace for a view Argo CD already provides | `create-app` ships the plugin; it was removed |
 | Search backend | Ten repositories do not need an index; the catalog page lists them | Nothing built. `create-app`'s default search backend and page stay installed, unconfigured |
 | Permissions framework | One operator and read-only data; authentication through Keycloak is the whole access model | No policy written. `create-app`'s default allow-all policy stays installed |
-| Custom theme or branding | It teaches nothing about running a portal | Not done |
+| Custom theme or branding | It teaches nothing about running a portal | Done 2026-10-27, after the proof of concept closed |
 | High-availability Postgres | The database holds nothing that Git and the bucket do not hold, beyond what D7 accepts losing | Not done |
 | Multi-cluster | There is one cluster | Not done |
 | A hosted Backstage offering | The question is what self-hosting costs; a hosted offering answers a different question | Not done |
