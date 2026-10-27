@@ -50,13 +50,23 @@ const darkPrimary = {
   contrastText: tokens.light.ink,
 };
 
+/**
+ * The dark theme's secondary takes the same shape: ink on brand-light is 7.0:1, and on
+ * brand-sky, where a contained button hovers, 9.9:1.
+ */
+const darkSecondary = {
+  main: tokens.dark.brandLight,
+  dark: tokens.dark.brandSky,
+  contrastText: tokens.light.ink,
+};
+
 function palette(variant: 'light' | 'dark') {
   const t = tokens[variant];
   const base = palettes[variant];
   return {
     ...base,
     primary: variant === 'light' ? { main: t.brand } : darkPrimary,
-    secondary: { main: variant === 'light' ? t.brandDeep : t.brandLight },
+    secondary: variant === 'light' ? { main: t.brandDeep } : darkSecondary,
     info: { main: t.brandLight },
     success: { main: t.success },
     warning: { main: t.warning },
