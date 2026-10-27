@@ -19,9 +19,15 @@ Accepted (2026-10-19)
 Proposed 2026-10-18 as a proof of concept, time-boxed to one weekend and two evenings.
 Accepted 2026-10-19 with the decisions as built on the first two days.
 [Reconciled at acceptance](#reconciled-at-acceptance) lists every decision that changed from
-the proposal. Acceptance records the decisions; it does not close the proof of concept. Two
-of the six done-criteria are still open ([D1](#d1-a-portal-as-a-proof-of-concept-with-six-done-criteria)).
+the proposal. Acceptance recorded the decisions without closing the proof of concept. The
+proof of concept closed on 2026-10-26: criteria 1, 2, 4, 5 and 6 of
+[D1](#d1-a-portal-as-a-proof-of-concept-with-six-done-criteria) were met, and the owner closed
+criterion 3 at the template's dry run without a real run.
 The record moves to Superseded, with the reasons, when the portal is torn down.
+
+Amended 2026-10-27: the portal is named ManyStage. The cut-list row 'Custom theme or
+branding' is lifted; the portal carries the Manyfold design system (theme module, logo,
+bundled fonts) since the amendment.
 
 ## Reconciled at acceptance
 
@@ -240,7 +246,7 @@ Deliberately not done, each a sentence of the form "not done, because", not a we
 | Kubernetes plugin with cluster credentials | It would give the portal read access to every namespace for a view Argo CD already provides | `create-app` ships the plugin; it was removed |
 | Search backend | Ten repositories do not need an index; the catalog page lists them | Nothing built. `create-app`'s default search backend and page stay installed, unconfigured |
 | Permissions framework | One operator and read-only data; authentication through Keycloak is the whole access model | No policy written. `create-app`'s default allow-all policy stays installed |
-| Custom theme or branding | It teaches nothing about running a portal | Not done |
+| Custom theme or branding | It teaches nothing about running a portal | Done 2026-10-27, after the proof of concept closed |
 | High-availability Postgres | The database holds nothing that Git and the bucket do not hold, beyond what D7 accepts losing | Not done |
 | Multi-cluster | There is one cluster | Not done |
 | A hosted Backstage offering | The question is what self-hosting costs; a hosted offering answers a different question | Not done |

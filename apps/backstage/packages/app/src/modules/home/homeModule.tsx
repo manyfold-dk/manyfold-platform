@@ -3,43 +3,25 @@ import { HomePageWidgetBlueprint } from '@backstage/plugin-home-react/alpha';
 import { MarkdownContent } from '@backstage/core-components';
 
 const content = `
-## Welcome to Backstage! 👋
+ManyStage is the Manyfold platform's developer portal. It shows what the platform
+is made of: its components, systems and APIs, who owns each of them, and the
+documentation that comes with them.
 
-Backstage is your developer portal — a single place to manage all your
-software, services, and documentation.
+The [software catalog](/) is the start page. An entity's documentation opens from
+its TechDocs tab, and [Docs](/docs) lists all of it. The software templates are
+under [Create](/create).
 
-### Quick Start
-
-- **Explore the catalog** — Browse all your organization's software in
-  the [Software Catalog](/)
-- **Create something new** — Use a [Software Template](/create) to
-  scaffold a new project in minutes
-- **Read the docs** — Find technical documentation for any service
-  right from its catalog page
-
-### Helpful Links
-
-- [Backstage Documentation](https://backstage.io/docs)
-- [Customizing Your Homepage](https://backstage.io/docs/getting-started/homepage)
-- [Adding Plugins](https://backstage.io/docs/plugins)
-- [Contributing](https://github.com/backstage/backstage/blob/master/CONTRIBUTING.md)
-
-### How to Edit This Card
-
-This widget is defined in \`packages/app/src/modules/home/homeModule.tsx\`.
-You can update the markdown content there to welcome your team with
-your own links and getting started tips.
-
-To remove this card entirely, delete the getting started widget and
-remove it from the home module's extensions array in this file.
+An entity gets in through a \`catalog-info.yaml\` next to the code it describes. The
+file names the entity, its owner and its system; once a catalog location points at
+it, the catalog reads it from Git and follows every change.
 `;
 
 const gettingStartedWidget = HomePageWidgetBlueprint.make({
   name: 'getting-started',
   params: {
     name: 'GettingStarted',
-    title: 'Getting Started',
-    description: 'Tips and links to help you get started with Backstage',
+    title: 'ManyStage',
+    description: 'What the portal holds and how an entity gets into it',
     components: async () => ({
       Content: () => <MarkdownContent content={content} />,
     }),

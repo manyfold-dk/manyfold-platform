@@ -1,5 +1,5 @@
 app:
-  title: Manyfold Platform
+  title: ManyStage
   baseUrl: http://localhost:3000
 
   # Enable all packages by default, this will discover packages from packages/app/package.json
@@ -25,32 +25,15 @@ app:
     - home-page-widget:home/toolkit:
         config:
           tools:
+            - url: https://github.com/manyfold-dk/manyfold-platform
+              label: Platform reference
+              icon: github
             - url: https://backstage.io/docs
-              label: Docs
+              label: Backstage docs
               icon: docs
-            - url: https://github.com/backstage/backstage
-              label: GitHub
-              icon: github
-            - url: https://github.com/backstage/backstage/blob/master/CONTRIBUTING.md
-              label: Contributing
-              icon: docs
-            - url: https://backstage.io/plugins
-              label: Plugins Directory
-              icon: kind:component
-            - url: https://github.com/backstage/backstage/issues/new/choose
-              label: Submit New Issue
-              icon: github
-    - home-page-widget:home/world-clock:
-        config:
-          clockConfigs:
-            - label: NYC
-              timeZone: America/New_York
-            - label: UTC
-              timeZone: UTC
-            - label: STO
-              timeZone: Europe/Stockholm
-            - label: TYO
-              timeZone: Asia/Tokyo
+    # The world clock and the random joke widgets are not offered.
+    - home-page-widget:home/world-clock: false
+    - home-page-widget:home/random-joke: false
     - page:home:
         config:
           defaultConfig:
@@ -70,18 +53,8 @@ app:
               row: 2
               width: 4
               height: 4
-            - component: HomePageRandomJoke
-              column: 8
-              row: 2
-              width: 4
-              height: 4
             - component: HomePageToolkit
               column: 4
-              row: 6
-              width: 4
-              height: 3
-            - component: HomePageWorldClock
-              column: 8
               row: 6
               width: 4
               height: 3
