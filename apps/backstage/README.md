@@ -57,7 +57,8 @@ under the same theme ids, so a user's stored choice still applies. `tokens.ts` h
 design system's colours, light and dark, its fonts and the corner radius. `themes.ts` maps
 them onto the Material UI palette and typography and adds a few component overrides.
 `styles.css` sets the same colours and fonts as the variables of the Backstage UI components,
-which the catalog pages use.
+which the catalog pages use. The dark theme's solid buttons carry ink text instead of white,
+because white on the dark theme's brand blue is below a contrast of 4.5:1.
 
 The fonts, Inter and JetBrains Mono, come from the `@fontsource` packages. The frontend bundle
 carries them and the backend serves them from the portal's own origin, so the browser loads no

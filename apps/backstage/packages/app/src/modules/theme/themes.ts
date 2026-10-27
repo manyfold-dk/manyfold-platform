@@ -38,13 +38,25 @@ const typography: BackstageTypography = {
   h6: { fontSize: 16, fontWeight: 600, marginBottom: 2 },
 };
 
+/**
+ * Solid controls of the dark theme carry ink text: white on the dark theme's brand
+ * blue is 3.7:1, the light theme's ink on it 4.85:1. Material UI hovers a contained
+ * button to `primary.dark`; brand-light keeps ink at 7.0:1 there, where brand-deep
+ * would drop it to 2.1:1.
+ */
+const darkPrimary = {
+  main: tokens.dark.brand,
+  dark: tokens.dark.brandLight,
+  contrastText: tokens.light.ink,
+};
+
 function palette(variant: 'light' | 'dark') {
   const t = tokens[variant];
   const base = palettes[variant];
   return {
     ...base,
-    primary: { main: t.brand },
-    secondary: { main: t.brandDeep },
+    primary: variant === 'light' ? { main: t.brand } : darkPrimary,
+    secondary: { main: variant === 'light' ? t.brandDeep : t.brandLight },
     info: { main: t.brandLight },
     success: { main: t.success },
     warning: { main: t.warning },

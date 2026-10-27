@@ -19,8 +19,10 @@ Accepted (2026-10-19)
 Proposed 2026-10-18 as a proof of concept, time-boxed to one weekend and two evenings.
 Accepted 2026-10-19 with the decisions as built on the first two days.
 [Reconciled at acceptance](#reconciled-at-acceptance) lists every decision that changed from
-the proposal. Acceptance records the decisions; it does not close the proof of concept. Two
-of the six done-criteria are still open ([D1](#d1-a-portal-as-a-proof-of-concept-with-six-done-criteria)).
+the proposal. Acceptance recorded the decisions without closing the proof of concept. The
+proof of concept closed on 2026-10-26: criteria 1, 2, 4, 5 and 6 of
+[D1](#d1-a-portal-as-a-proof-of-concept-with-six-done-criteria) were met, and the owner closed
+criterion 3 at the template's dry run without a real run.
 The record moves to Superseded, with the reasons, when the portal is torn down.
 
 Amended 2026-10-27: the portal is named ManyStage. The cut-list row 'Custom theme or

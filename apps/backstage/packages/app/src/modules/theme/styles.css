@@ -54,13 +54,15 @@
   --bui-fg-secondary: #cbd5e1;
   --bui-border-1: #1e293b;
   --bui-border-2: #94a3b8;
+  /* Ink on brand blue (4.85:1) and on brand-light when hovered (7.0:1); white on
+     the dark theme's brand blue is 3.7:1. */
   --bui-bg-solid: #3b82f6;
-  --bui-bg-solid-hover: #1e40af;
-  --bui-bg-solid-pressed: #1e40af;
-  --bui-fg-solid: #ffffff;
+  --bui-bg-solid-hover: #60a5fa;
+  --bui-bg-solid-pressed: #60a5fa;
+  --bui-fg-solid: #0f172a;
   --bui-accent-bg: #3b82f6;
-  --bui-accent-bg-hover: #1e40af;
-  --bui-accent-fg: #ffffff;
+  --bui-accent-bg-hover: #60a5fa;
+  --bui-accent-fg: #0f172a;
   --bui-fg-success: #34d399;
   --bui-fg-positive: #34d399;
   --bui-fg-warning: #fbbf24;
