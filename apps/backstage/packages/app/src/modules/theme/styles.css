@@ -78,3 +78,18 @@ pre,
 samp {
   font-family: var(--bui-font-monospace);
 }
+
+/*
+ * The press ripple's enter animation: Material UI's own (scale 0 to 1, opacity 0.1 to
+ * 0.3, 550 ms) with the opacity scaled to the 0.12 that themes.ts gives the ripple.
+ */
+@keyframes manystage-ripple-enter {
+  0% {
+    transform: scale(0);
+    opacity: 0.04;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.12;
+  }
+}

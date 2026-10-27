@@ -103,10 +103,10 @@ function palette(variant: 'light' | 'dark') {
 }
 
 /**
- * A few overrides, not a rewrite: radius-md on buttons, inputs and cards, and
- * borders instead of shadows on cards and the page header. `createUnifiedTheme`
- * replaces Backstage's defaults per component, so an override restates or spreads
- * them.
+ * A few overrides, not a rewrite: radius-md on buttons, inputs and cards, borders
+ * instead of shadows on cards and the page header, and a fainter press ripple.
+ * `createUnifiedTheme` replaces Backstage's defaults per component, so an override
+ * restates or spreads them.
  */
 function components(t: ColorTokens): UnifiedThemeOptions['components'] {
   return {
@@ -137,6 +137,20 @@ function components(t: ColorTokens): UnifiedThemeOptions['components'] {
     },
     MuiOutlinedInput: {
       styleOverrides: { root: { borderRadius: radiusMd } },
+    },
+    // Material UI paints the press ripple in the text colour at 0.3, which takes a
+    // held button's text well below 4.5:1 on the brand blues. At 0.12 the ripple
+    // stays visible, secondary buttons keep 4.5:1, and primary ones stay between
+    // 3.8 and 4.5:1. The enter animation peaks at the same opacity: its keyframes,
+    // `manystage-ripple-enter`, are in styles.css and repeat the 0.12.
+    MuiTouchRipple: {
+      styleOverrides: {
+        rippleVisible: {
+          opacity: 0.12,
+          animation:
+            'manystage-ripple-enter 550ms cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+      },
     },
   };
 }
