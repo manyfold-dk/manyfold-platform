@@ -17,11 +17,12 @@ app:
     #     config:
     #       path: /
 
-    # Visit tracking records which pages users navigate to and is disabled by default.
-    # Enable it to populate the Most Visited and Recently Visited widgets on the Home page.
-    # Visit data is stored via UserSettings storage if available, otherwise browser localStorage.
-    # - api:home/visits: true
-    # - app-root-element:home/visit-listener: true
+    # Visit tracking records which pages each signed-in user navigates to (path, display
+    # name, hit count, last visit; at most 100 paths per user) and fills the Most Visited and
+    # Recently Visited widgets on the Home page. The portal keeps the data in its own
+    # user-settings store when the backend is present, otherwise in browser localStorage.
+    - api:home/visits: true
+    - app-root-element:home/visit-listener: true
     - home-page-widget:home/toolkit:
         config:
           tools:
