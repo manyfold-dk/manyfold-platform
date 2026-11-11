@@ -74,8 +74,10 @@ receipts:
 ./scripts/dinero-upload.sh ~/path/to/receipt.pdf [more-receipts ...]
 ```
 
-The script sources the gitignored root `.env.agents`, performs the Keycloak password-grant token
-exchange as `claude-agent`, and uploads each file as multipart form part `file`. It derives a stable
+The script reads the agent credentials through the installation's credential helper (see the
+[runbooks README](../../docs/runbooks/README.md#prerequisites)), performs the Keycloak
+password-grant token exchange as `claude-agent`, and uploads each file as multipart form part
+`file`. It derives a stable
 idempotency key from the file's SHA-256 digest, so retrying the same bytes does not create a second
 vendor upload. `ACCOUNTING_MCP_URL` overrides the script's default service URL.
 
@@ -155,7 +157,8 @@ It runs the whole receipt->voucher lifecycle against the production org using a 
 invoice fixture, asserts read-back semantics (exact byte count, own-currency totals, guard 409s,
 no stranded drafts, exact MCP tool surface), stops at the first failure, and books the fixture
 invoice only after the read-back proves the draft total. Requires `.env.cloud` (`DINERO_*`) and
-`.env.agents` (agent Keycloak login). The payment leg needs an optional second fixture.
+the agent Keycloak login from the installation's credential helper. The payment leg needs an
+optional second fixture.
 
 The authoritative Dinero request models come from the machine-readable spec at
 `https://api.dinero.dk/openapi/v1/swagger.json` -- never guess field names from the rendered docs;
