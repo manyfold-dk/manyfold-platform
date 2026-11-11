@@ -96,6 +96,10 @@ Full rebuild typically involves:
 
 ## Procedure
 
+> **Warning:** If the store of your credential helper runs on the cluster that you rebuild, the
+> helper cannot read the store. Restore the credentials with the break-glass procedure of your
+> installation. Then use the form without a credential helper.
+
 ### Step 1: Destroy Existing Infrastructure (If Applicable)
 
 If infrastructure still exists and needs clean rebuild:
@@ -133,6 +137,13 @@ cd infrastructure/clusters/cloud/bootstrap
 
 # Initialize (if fresh clone)
 tofu init -backend-config=backend.hcl
+```
+
+If the state backend reads its keys from the environment, not from `backend.hcl`, run `tofu init`
+through the credential helper:
+
+```bash
+<credential-helper> AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY -- tofu init -backend-config=backend.hcl
 ```
 
 With a credential helper ([runbooks README](../README.md#prerequisites)):
