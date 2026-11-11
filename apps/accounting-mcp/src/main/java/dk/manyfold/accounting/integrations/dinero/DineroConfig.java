@@ -6,9 +6,9 @@ import java.util.Optional;
 
 /**
  * Configuration for the Dinero personal-integration passthrough + writes (ADR-0043). Secret values
- * are read from the environment and never live in Git: prod from the SOPS-encrypted {@code
- * dinero-credentials} secret, local/cloud dev from the gitignored root {@code .env.cloud} ({@code
- * DINERO_*}).
+ * are read from the environment ({@code DINERO_*}) and never live in Git: prod from the
+ * SOPS-encrypted {@code dinero-credentials} secret, local/cloud dev from the environment of the dev
+ * process, which the installation's credential helper or a local env file can provide.
  *
  * <p>Blank {@code clientId}/{@code clientSecret}/{@code apiKey}/{@code organizationId} keep the
  * integration inert (503), so the service ships dark until the personal-integration credentials are
