@@ -112,7 +112,9 @@ mvn verify               # tests, Checkstyle and the format check (google-java-f
 mvn spotless:apply       # format; verify only checks
 ```
 
-Dinero creds are read from the gitignored root `.env.cloud` (`DINERO_*`). The write ledger needs a
+The service reads the Dinero credentials (`DINERO_*`) from its environment, as the
+[Configuration](#configuration) table lists. Start `mvn quarkus:dev` with them in its environment;
+the installation's credential helper or a local env file can provide them. The write ledger needs a
 Postgres (Quarkus Dev Services starts one automatically when Docker is available).
 
 ## Guardrails
@@ -156,9 +158,9 @@ end-to-end harness, an operator script in the instance repository, before handin
 It runs the whole receipt->voucher lifecycle against the production org using a pre-verified real
 invoice fixture, asserts read-back semantics (exact byte count, own-currency totals, guard 409s,
 no stranded drafts, exact MCP tool surface), stops at the first failure, and books the fixture
-invoice only after the read-back proves the draft total. Requires `.env.cloud` (`DINERO_*`) and
-the agent Keycloak login from the installation's credential helper. The payment leg needs an
-optional second fixture.
+invoice only after the read-back proves the draft total. Requires the Dinero credentials
+(`DINERO_*`) and the agent Keycloak login from the installation's credential helper. The payment
+leg needs an optional second fixture.
 
 The authoritative Dinero request models come from the machine-readable spec at
 `https://api.dinero.dk/openapi/v1/swagger.json` -- never guess field names from the rendered docs;
