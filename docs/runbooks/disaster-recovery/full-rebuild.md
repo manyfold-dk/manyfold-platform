@@ -96,13 +96,31 @@ Full rebuild typically involves:
 
 ## Procedure
 
+> **Warning:** If the store of your credential helper runs on the cluster that you rebuild, the
+> helper cannot read the store. Restore the credentials with the break-glass procedure of your
+> installation. Then use the form without a credential helper.
+
 ### Step 1: Destroy Existing Infrastructure (If Applicable)
 
 If infrastructure still exists and needs clean rebuild:
 
 ```bash
 cd infrastructure/clusters/cloud/bootstrap
-# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+```
+
+With a credential helper ([runbooks README](../README.md#prerequisites)):
+
+```bash
+# Destroy everything
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu destroy'
+
+# Wait for completion
+```
+
+Without a credential helper, read two variables only. Do not source the whole file:
+
+```bash
 export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
 export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 
@@ -116,12 +134,31 @@ tofu destroy
 
 ```bash
 cd infrastructure/clusters/cloud/bootstrap
-# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
-export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
-export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 
 # Initialize (if fresh clone)
 tofu init -backend-config=backend.hcl
+```
+
+If the state backend reads its keys from the environment, not from `backend.hcl`, run `tofu init`
+through the credential helper:
+
+```bash
+<credential-helper> AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY -- tofu init -backend-config=backend.hcl
+```
+
+With a credential helper ([runbooks README](../README.md#prerequisites)):
+
+```bash
+# Apply infrastructure
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu apply'
+```
+
+Without a credential helper, read two variables only. Do not source the whole file:
+
+```bash
+export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
+export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 
 # Apply infrastructure
 tofu apply

@@ -41,11 +41,27 @@ cd infrastructure/clusters/cloud/bootstrap
 
 # Edit variables to add worker
 # Modify worker count or add new worker definition
+```
 
+With a credential helper ([runbooks README](../README.md#prerequisites)):
+
+```bash
 # Plan changes
-# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu plan'
+
+# Apply
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu apply'
+```
+
+Without a credential helper, read two variables only. Do not source the whole file:
+
+```bash
 export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
 export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
+
+# Plan changes
 tofu plan
 
 # Apply
@@ -103,8 +119,20 @@ cd infrastructure/clusters/cloud/bootstrap
 
 # Update configuration to remove worker
 # Modify worker count or remove worker definition
+```
 
-# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+With a credential helper ([runbooks README](../README.md#prerequisites)):
+
+```bash
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu plan'
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu apply'
+```
+
+Without a credential helper, read two variables only. Do not source the whole file:
+
+```bash
 export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
 export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 tofu plan
@@ -129,8 +157,20 @@ cd infrastructure/clusters/cloud/bootstrap
 
 # Update configuration to add control plane node
 # Edit terraform.tfvars to increase cp count
+```
 
-# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+With a credential helper ([runbooks README](../README.md#prerequisites)):
+
+```bash
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu plan'
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu apply'
+```
+
+Without a credential helper, read two variables only. Do not source the whole file:
+
+```bash
 export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
 export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 tofu plan
@@ -188,7 +228,20 @@ kubectl delete node <node-name>
 
 ```bash
 cd infrastructure/clusters/cloud/bootstrap
-# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+```
+
+With a credential helper ([runbooks README](../README.md#prerequisites)):
+
+```bash
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu plan'
+<credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+  sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu apply'
+```
+
+Without a credential helper, read two variables only. Do not source the whole file:
+
+```bash
 export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
 export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
 tofu plan

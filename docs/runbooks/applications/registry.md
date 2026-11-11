@@ -9,6 +9,8 @@ Procedures for operating and troubleshooting the pull-through cache registries i
 | `<cloud-kubeconfig>` | The path of the kubeconfig file for the cloud cluster |
 | `<internal-domain>` | The internal DNS zone of the mirror hosts. A mirror is at `<mirror-name>.<internal-domain>` |
 | `<cloud-env-file>` | The path of the local, untracked file with the cloud credentials that `tofu` reads |
+| `<credential-helper>` | The credential helper of the installation, if the installation has one. The [runbooks README](../README.md#prerequisites) gives the call shape |
+| `<hcloud-token-name>` | The name of the Hetzner Cloud token in `<cloud-env-file>` or for `<credential-helper>` |
 
 ## Table of Contents
 
@@ -226,7 +228,18 @@ kubectl exec -n registry-system deployment/mirror-docker-io -- \
 
    # Apply Talos config
    cd infrastructure/clusters/cloud/bootstrap
-   # Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+   ```
+
+   With a credential helper ([runbooks README](../README.md#prerequisites)):
+
+   ```bash
+   <credential-helper> <hcloud-token-name> CLOUDFLARE_API_TOKEN -- \
+     sh -c 'export HCLOUD_TOKEN="${<hcloud-token-name>}"; exec tofu apply'
+   ```
+
+   Without a credential helper, read two variables only. Do not source the whole file:
+
+   ```bash
    export HCLOUD_TOKEN="$(sed -n 's/^<hcloud-token-name>=//p' <cloud-env-file> | head -1)"
    export CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' <cloud-env-file> | head -1)"
    tofu apply
