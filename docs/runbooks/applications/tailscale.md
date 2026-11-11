@@ -12,6 +12,7 @@ Operational procedures for Tailscale Kubernetes Operator.
 | `<resolver-ip>` | The fixed ClusterIP of the `private-admin-dns` Service: `spec.clusterIP` in `platform/resources/cloud/private-admin-dns/service.yaml` |
 | `<tailscale-oauth-file>` | The name of the SOPS-encrypted file in `platform/resources/cloud/secrets/` that holds the operator OAuth credentials |
 | `<cloud-env-file>` | The path of the local, untracked file with the cloud credentials |
+| `<credential-helper>` | The credential helper of the installation, if the installation has one. The [runbooks README](../README.md#prerequisites) gives the call shape |
 
 ## Table of Contents
 
@@ -54,6 +55,8 @@ The OAuth client credentials must be rotated before they expire.
 4. Copy the **Client ID** and **Client Secret**
 
 #### Step 2: Update Local Credentials
+
+On an installation with a credential helper, store the new pair where the helper reads it. The installation documents that procedure.
 
 ```bash
 # Update <cloud-env-file> with new credentials
@@ -131,23 +134,41 @@ curl -s https://grafana-cluster.<tailnet-domain> | head -5
 
 ### Alternative: Rotate via Tailscale API
 
-If you have API access, you can automate rotation:
+If you have API access, you can automate rotation. The commands give the OAuth pair and the access token to `curl` on stdin (`curl -K -`). No value enters an argument list.
+
+With a credential helper ([runbooks README](../README.md#prerequisites)):
 
 ```bash
 # The OAuth client itself can be used to create API keys
 # First, get an access token using the OAuth credentials
-# Two variables only. Do not source the whole file (runbooks README, Prerequisites).
+<credential-helper> TAILSCALE_OAUTH_CLIENT_ID TAILSCALE_OAUTH_CLIENT_SECRET -- sh -c '
+# Create access token (valid for 1 hour)
+ACCESS_TOKEN=$(printf "user = \"%s:%s\"\n" "$TAILSCALE_OAUTH_CLIENT_ID" "$TAILSCALE_OAUTH_CLIENT_SECRET" |
+  curl -s -K - -X POST "https://api.tailscale.com/api/v2/oauth/token" \
+    -d "grant_type=client_credentials" | jq -r ".access_token")
+
+# List current OAuth clients (requires additional scope)
+printf "header = \"Authorization: Bearer %s\"\n" "$ACCESS_TOKEN" |
+  curl -s -K - "https://api.tailscale.com/api/v2/tailnet/-/keys"
+'
+```
+
+Without a credential helper, read two variables only. Do not source the whole file:
+
+```bash
+# The OAuth client itself can be used to create API keys
+# First, get an access token using the OAuth credentials
 TAILSCALE_OAUTH_CLIENT_ID="$(sed -n 's/^TAILSCALE_OAUTH_CLIENT_ID=//p' <cloud-env-file> | head -1)"
 TAILSCALE_OAUTH_CLIENT_SECRET="$(sed -n 's/^TAILSCALE_OAUTH_CLIENT_SECRET=//p' <cloud-env-file> | head -1)"
 
 # Create access token (valid for 1 hour)
-ACCESS_TOKEN=$(curl -s -X POST "https://api.tailscale.com/api/v2/oauth/token" \
-  -u "${TAILSCALE_OAUTH_CLIENT_ID}:${TAILSCALE_OAUTH_CLIENT_SECRET}" \
-  -d "grant_type=client_credentials" | jq -r '.access_token')
+ACCESS_TOKEN=$(printf "user = \"%s:%s\"\n" "$TAILSCALE_OAUTH_CLIENT_ID" "$TAILSCALE_OAUTH_CLIENT_SECRET" |
+  curl -s -K - -X POST "https://api.tailscale.com/api/v2/oauth/token" \
+    -d "grant_type=client_credentials" | jq -r ".access_token")
 
 # List current OAuth clients (requires additional scope)
-curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  "https://api.tailscale.com/api/v2/tailnet/-/keys"
+printf "header = \"Authorization: Bearer %s\"\n" "$ACCESS_TOKEN" |
+  curl -s -K - "https://api.tailscale.com/api/v2/tailnet/-/keys"
 ```
 
 Note: Creating new OAuth clients via API requires additional scopes that may not be available. Manual rotation via the admin console is recommended.
