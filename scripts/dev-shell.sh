@@ -33,6 +33,9 @@ DOCKERFILE="$PROJECT_DIR/.devcontainer/Dockerfile"
 MAIN_CHECKOUT="$(cd "$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$PROJECT_DIR/.git")/.." && pwd)"
 ENV_FILE="$MAIN_CHECKOUT/.env"
 ENV_FILE_EXPLICIT=false
+# The private file for docker run --env-file, which load_env_vars creates. Set empty here so
+# that an ENV_TMP in the caller's environment never stands in for it.
+ENV_TMP=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -135,8 +138,29 @@ VOLUMES:
 EOF
 }
 
-# Read the NAME=value lines of ENV_FILE into ENV_VARS as docker run -e arguments.
+# Set ENV_VARS, the environment options of both docker run calls: LOCAL_WORKSPACE_FOLDER,
+# TERM_PROGRAM when it is set, and then the NAME=value lines of ENV_FILE, which override the
+# two before them. With an environment file, all of them go into a private file for docker
+# run --env-file, so that no value of ENV_FILE reaches the docker CLI's argv, where ps shows
+# it; ENV_VARS then holds only "--env-file <file>". The file is mode 0600 and goes when the
+# script exits; on the interactive paths it stays until the session ends.
+#
+# Line rules: comments and blank lines are skipped. A byte-order mark on the first line, a
+# trailing CR (a CRLF file) and leading whitespace are dropped, and a last line without a
+# newline still counts. The name ends at the first "=", and the value keeps every later "=".
+# One leading and one trailing double quote are removed from the value. A value cannot span
+# lines. A line that docker run would refuse, or print with its value in the error, is
+# skipped with a warning that names its line number, never its value: a line that is not
+# valid UTF-8, a name that is empty, holds whitespace or starts with anything but a printable
+# ASCII character, and a NAME=value line longer than the 65535 bytes that docker run reads.
 load_env_vars() {
+    # Byte semantics: the patterns below match bytes, and ${#entry} counts bytes.
+    local LC_ALL=C
+    local defaults=("LOCAL_WORKSPACE_FOLDER=$PROJECT_DIR")
+    if [ -n "${TERM_PROGRAM:-}" ]; then
+        defaults+=("TERM_PROGRAM=$TERM_PROGRAM")
+    fi
+
     ENV_VARS=()
     if [ ! -f "$ENV_FILE" ]; then
         if [ "$ENV_FILE_EXPLICIT" = true ]; then
@@ -144,19 +168,53 @@ load_env_vars() {
             exit 1
         fi
         print_info "No environment file at $ENV_FILE; starting without one"
+        local pair
+        for pair in "${defaults[@]}"; do
+            ENV_VARS+=(-e "$pair")
+        done
         return 0
     fi
 
     print_info "Loading environment variables from $ENV_FILE"
-    while IFS='=' read -r key value; do
-        # Skip comments and empty lines
-        [[ "$key" =~ ^#.*$ ]] && continue
-        [[ -z "$key" ]] && continue
-        # Remove quotes from value if present
+    if [ -z "$ENV_TMP" ]; then
+        ENV_TMP="$(umask 077 && mktemp "${TMPDIR:-/tmp}/dev-shell-env.XXXXXX")"
+        trap 'rm -f -- "$ENV_TMP"' EXIT
+    fi
+    # The defaults come first: docker run gives a repeated name its last value.
+    printf '%s\n' "${defaults[@]}" > "$ENV_TMP"
+
+    local line key value entry lineno=0
+    local utf8_re=$'^([^\x80-\xff]|[\xc2-\xdf][\x80-\xbf]|\xe0[\xa0-\xbf][\x80-\xbf]|[\xe1-\xec\xee\xef][\x80-\xbf][\x80-\xbf]|\xed[\x80-\x9f][\x80-\xbf]|\xf0[\x90-\xbf][\x80-\xbf][\x80-\xbf]|[\xf1-\xf3][\x80-\xbf][\x80-\xbf][\x80-\xbf]|\xf4[\x80-\x8f][\x80-\xbf][\x80-\xbf])*$'
+    local name_re='^[[:graph:]][^[:space:]]*$'
+    while IFS= read -r line || [ -n "$line" ]; do
+        lineno=$((lineno + 1))
+        [ "$lineno" -eq 1 ] && line="${line#$'\xef\xbb\xbf'}"
+        line="${line%$'\r'}"
+        line="${line#"${line%%[![:space:]]*}"}"
+        if [ -z "$line" ] || [[ $line == \#* ]]; then
+            continue
+        fi
+        if [[ ! $line =~ $utf8_re ]]; then
+            print_warning "Skipping line $lineno of $ENV_FILE: not valid UTF-8"
+            continue
+        fi
+        key="${line%%=*}"
+        value=""
+        [[ $line == *=* ]] && value="${line#*=}"
+        if [[ ! $key =~ $name_re ]]; then
+            print_warning "Skipping line $lineno of $ENV_FILE: not a NAME=value line"
+            continue
+        fi
         value="${value%\"}"
         value="${value#\"}"
-        ENV_VARS+=("-e" "$key=$value")
+        entry="$key=$value"
+        if [ "${#entry}" -gt 65535 ]; then
+            print_warning "Skipping line $lineno of $ENV_FILE: longer than 65535 bytes"
+            continue
+        fi
+        printf '%s\n' "$entry" >> "$ENV_TMP"
     done < "$ENV_FILE"
+    ENV_VARS=(--env-file "$ENV_TMP")
 }
 
 check_docker() {
@@ -241,14 +299,8 @@ start_interactive() {
 
     print_info "Persistent volumes: claude-config, codex-config, maven-repo, pnpm-store"
 
+    # The container environment, TERM_PROGRAM for iTerm2 profile switching among it
     load_env_vars
-
-    # Build the run command environment variables
-    RUN_ENV_ARGS=()
-    # Pass TERM_PROGRAM for iTerm2 profile switching
-    if [ -n "$TERM_PROGRAM" ]; then
-        RUN_ENV_ARGS+=("-e" "TERM_PROGRAM=$TERM_PROGRAM")
-    fi
 
     # Startup script that initializes the environment
     STARTUP_SCRIPT='
@@ -274,13 +326,11 @@ start_interactive() {
     docker run --rm -it \
         --name "${CONTAINER_NAME}-temp" \
         -v "$PROJECT_DIR:/workspace" \
-        -e LOCAL_WORKSPACE_FOLDER="$PROJECT_DIR" \
         "${VOLUME_MOUNTS[@]}" \
         -w /workspace \
         -p 8080:8080 \
         -p 5173:5173 \
         -p 9229:9229 \
-        "${RUN_ENV_ARGS[@]}" \
         "${ENV_VARS[@]}" \
         "$IMAGE_NAME" \
         zsh -c "$STARTUP_SCRIPT"
@@ -315,14 +365,8 @@ start_daemon() {
 
         print_info "Persistent volumes: claude-config, codex-config, maven-repo, pnpm-store"
 
+        # The container environment, TERM_PROGRAM for iTerm2 profile switching among it
         load_env_vars
-
-        # Build the run command environment variables
-        RUN_ENV_ARGS=()
-        # Pass TERM_PROGRAM for iTerm2 profile switching
-        if [ -n "$TERM_PROGRAM" ]; then
-            RUN_ENV_ARGS+=("-e" "TERM_PROGRAM=$TERM_PROGRAM")
-        fi
 
         # Startup script that initializes the environment
         STARTUP_SCRIPT='
@@ -349,13 +393,11 @@ start_daemon() {
         docker run -d -it \
             --name "$CONTAINER_NAME" \
             -v "$PROJECT_DIR:/workspace" \
-            -e LOCAL_WORKSPACE_FOLDER="$PROJECT_DIR" \
             "${VOLUME_MOUNTS[@]}" \
             -w /workspace \
             -p 8080:8080 \
             -p 5173:5173 \
             -p 9229:9229 \
-            "${RUN_ENV_ARGS[@]}" \
             "${ENV_VARS[@]}" \
             "$IMAGE_NAME" \
             zsh -c "$STARTUP_SCRIPT"
