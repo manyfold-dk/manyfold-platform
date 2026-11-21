@@ -7,3 +7,6 @@ infrastructure/.working/
 terraform.tfvars
 *.auto.tfvars
 backend.hcl
+
+# Maven build output of the Java applications and the build parent
+target/
